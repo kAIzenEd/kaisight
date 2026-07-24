@@ -2,6 +2,7 @@
 import base64
 import csv
 import io
+import json
 from datetime import date, datetime
 
 from odoo import _, api, fields, models
@@ -103,6 +104,11 @@ class KaisightReportBuilder(models.TransientModel):
         """
         configured = source.sudo().default_field_ids.mapped("name")
         model_name = source.model_name
+        model_fields = self.env[model_name]._fields if model_name in self.env else {}
+
+        def _valid(names):
+            return [name for name in names if not model_fields or name in model_fields]
+
         preferred = []
         if model_name == "school.student":
             report = self.env.ref(
@@ -119,16 +125,59 @@ class KaisightReportBuilder(models.TransientModel):
             # When defaults exist, keep directory order for those that intersect,
             # then append any extra configured fields.
             if not configured:
-                return [
-                    name
-                    for name in preferred
-                    if model_name in self.env and name in self.env[model_name]._fields
-                ]
+                return _valid(preferred)
             configured_set = set(configured)
             ordered = [name for name in preferred if name in configured_set]
             ordered.extend(name for name in configured if name not in ordered)
-            return ordered
-        return list(configured)
+            return _valid(ordered)
+
+        saved_order = source.sudo().default_field_order
+        if saved_order:
+            try:
+                stored = json.loads(saved_order)
+            except (ValueError, TypeError):
+                stored = []
+            if isinstance(stored, list):
+                configured_set = set(configured)
+                ordered = [name for name in stored if name in configured_set]
+                ordered.extend(name for name in configured if name not in ordered)
+                return _valid(ordered)
+        return _valid(configured)
+
+    @api.model
+    def set_source_default_fields(self, source_id, field_names):
+        """Save the selected columns as this source's ordered common set."""
+        if not self.env.user.has_group("kaisight.group_kai_view_manager"):
+            raise AccessError(_("Only kaisight administrators can change the common set."))
+
+        source = (
+            self.env["kai.view.report.source"].sudo().browse(int(source_id)).exists()
+        )
+        if not source:
+            raise UserError(_("This data source no longer exists."))
+
+        model_name = source.model_name
+        model_fields = self.env[model_name]._fields if model_name in self.env else {}
+        ordered_names = []
+        for name in field_names or []:
+            if name in ordered_names:
+                continue
+            if model_fields and name not in model_fields:
+                continue
+            ordered_names.append(name)
+
+        field_records = (
+            self.env["ir.model.fields"]
+            .sudo()
+            .search([("model", "=", model_name), ("name", "in", ordered_names)])
+        )
+        source.write(
+            {
+                "default_field_ids": [(6, 0, field_records.ids)],
+                "default_field_order": json.dumps(ordered_names),
+            }
+        )
+        return {"default_fields": self._ordered_default_field_names(source)}
 
     @api.model
     def get_source_catalog(self):

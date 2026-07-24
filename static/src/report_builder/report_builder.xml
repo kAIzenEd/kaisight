@@ -190,6 +190,17 @@
                             <div class="kv-report-builder__toolbar-actions">
                                 <input type="search" class="form-control form-control-sm kv-report-builder__search"
                                     placeholder="Search fields…" t-model="state.fieldSearch"/>
+                                <div class="btn-group" role="group" aria-label="Column group display"
+                                    t-if="!state.fieldSearch">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        t-on-click="expandAllFieldGroups">
+                                        <i class="fa fa-expand me-1"/>Expand all
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        t-on-click="collapseAllFieldGroups">
+                                        <i class="fa fa-compress me-1"/>Collapse all
+                                    </button>
+                                </div>
                                 <button type="button" class="btn btn-outline-secondary btn-sm"
                                     t-if="hasCuratedFields"
                                     t-on-click="selectRecommended">
@@ -202,9 +213,22 @@
 
                         <div class="kv-field-groups">
                             <t t-foreach="filteredGroups" t-as="group" t-key="group.id">
-                                <section class="kv-field-group">
-                                    <h3 class="kv-field-group__title" t-esc="group.label"/>
-                                    <div class="kv-field-grid">
+                                <section class="kv-field-group"
+                                    t-att-class="{'kv-field-group--collapsed': isFieldGroupCollapsed(group.id)}">
+                                    <button type="button"
+                                        class="kv-field-group__header"
+                                        t-att-aria-expanded="!isFieldGroupCollapsed(group.id)"
+                                        t-on-click="() => this.toggleFieldGroup(group.id)">
+                                        <span class="kv-field-group__title" t-esc="group.label"/>
+                                        <span class="kv-field-group__summary">
+                                            <t t-esc="group.fields.length"/>
+                                            <t t-if="group.fields.length === 1"> field</t>
+                                            <t t-else=""> fields</t>
+                                            <i class="fa ms-2"
+                                                t-att-class="isFieldGroupCollapsed(group.id) ? 'fa-chevron-right' : 'fa-chevron-down'"/>
+                                        </span>
+                                    </button>
+                                    <div class="kv-field-grid" t-if="!isFieldGroupCollapsed(group.id)">
                                         <t t-foreach="group.fields" t-as="field" t-key="field.name">
                                             <label class="kv-field-check">
                                                 <input type="checkbox"
@@ -232,6 +256,60 @@
                                     <i class="fa fa-plus-square-o me-1"/>View all fields
                                 </t>
                             </button>
+                        </div>
+
+                        <div class="kv-report-builder__selected" t-if="selectedCount">
+                            <div class="kv-report-builder__selected-header">
+                                <div>
+                                    <h2 class="kv-report-builder__section-title mb-1">4. Column order</h2>
+                                    <span class="text-muted small">
+                                        Drag, or use the arrows, to set the order in previews, saved reports, and exports.
+                                    </span>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                    t-if="state.canManageSources"
+                                    t-att-disabled="state.savingCommonSet"
+                                    title="Replace this data source's default common columns with the current selection"
+                                    t-on-click="saveCommonSet">
+                                    <i class="fa fa-bookmark-o me-1"/>
+                                    <t t-if="state.savingCommonSet">Saving…</t>
+                                    <t t-else="">Save selection as common set</t>
+                                </button>
+                            </div>
+                            <ul class="kv-selected-columns">
+                                <t t-foreach="selectedColumns" t-as="col" t-key="col.name">
+                                    <li class="kv-selected-column"
+                                        t-att-class="{'kv-selected-column--dragging': state.dragFieldName === col.name}"
+                                        draggable="true"
+                                        t-on-dragstart="(ev) => this.onColumnDragStart(col.name, ev)"
+                                        t-on-dragover="onColumnDragOver"
+                                        t-on-drop="(ev) => this.onColumnDrop(col.name, ev)"
+                                        t-on-dragend="onColumnDragEnd">
+                                        <i class="fa fa-bars kv-selected-column__grip" title="Drag to reorder"/>
+                                        <span class="kv-selected-column__index" t-esc="col_index + 1"/>
+                                        <span class="kv-selected-column__label" t-esc="col.label"/>
+                                        <span class="kv-selected-column__actions">
+                                            <button type="button" class="btn btn-link btn-sm p-0"
+                                                title="Move up"
+                                                t-att-disabled="col_first"
+                                                t-on-click="() => this.moveSelected(col.name, -1)">
+                                                <i class="fa fa-arrow-up"/>
+                                            </button>
+                                            <button type="button" class="btn btn-link btn-sm p-0"
+                                                title="Move down"
+                                                t-att-disabled="col_last"
+                                                t-on-click="() => this.moveSelected(col.name, 1)">
+                                                <i class="fa fa-arrow-down"/>
+                                            </button>
+                                            <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                                                title="Remove column"
+                                                t-on-click="() => this.removeSelected(col.name)">
+                                                <i class="fa fa-times"/>
+                                            </button>
+                                        </span>
+                                    </li>
+                                </t>
+                            </ul>
                         </div>
 
                         <footer class="kv-report-builder__footer">

@@ -1,3 +1,30 @@
+/* Wide Open-report lists: keep every selected column readable and scroll horizontally.
+   Without this, Odoo's fixed table layout compresses 100+ columns into the viewport
+   so later columns look "missing" even though they are in the view. */
+.o_kaisight_wide_report {
+    .o_list_renderer.table-responsive {
+        overflow-x: auto !important;
+    }
+
+    table.o_list_table {
+        width: max-content !important;
+        min-width: 100%;
+        table-layout: fixed !important;
+    }
+
+    table.o_list_table thead th,
+    table.o_list_table tbody td {
+        min-width: 120px;
+        white-space: nowrap;
+    }
+
+    table.o_list_table thead th.o_list_record_selector,
+    table.o_list_table tbody td.o_list_record_selector {
+        min-width: 40px;
+        width: 40px;
+    }
+}
+
 /* Saved Reports list — clearer hierarchy for everyday use */
 .o_kai_saved_reports_list {
     .o_list_renderer .o_data_row {

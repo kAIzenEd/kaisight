@@ -179,16 +179,21 @@ class KaisightReport(models.Model):
             raise UserError(
                 _("Select at least one column, or pick a model with a “name” field.")
             )
-        parts = ["<list>"]
+        # Wide reports keep readable column widths and scroll horizontally
+        # instead of compressing every field into the viewport.
+        wide = len(field_names) > 12
+        list_attrs = ' class="o_kaisight_wide_report"' if wide else ""
+        parts = ["<list%s>" % list_attrs]
         for fname in field_names:
             field = self.env[self.model_name]._fields.get(fname)
+            width_attr = ' width="120px"' if wide else ""
             if field and _is_image_field_name(fname, field.type):
                 parts.append(
-                    '<field name="%s" widget="image" options="{\'size\': [40, 40]}"/>'
-                    % fname
+                    '<field name="%s" widget="image" options="{\'size\': [40, 40]}"%s/>'
+                    % (fname, width_attr)
                 )
             else:
-                parts.append('<field name="%s"/>' % fname)
+                parts.append('<field name="%s"%s/>' % (fname, width_attr))
         parts.append("</list>")
         return "".join(parts)
 

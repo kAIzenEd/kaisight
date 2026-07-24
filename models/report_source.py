@@ -45,6 +45,12 @@ class KaisightReportSource(models.Model):
         domain="[('model_id', '=', model_id)]",
         help="Pre-selected when opening this data source in the report builder.",
     )
+    default_field_order = fields.Char(
+        string="Common column order",
+        help="JSON-encoded ordered field names for the common set. Managed from "
+        "the Report Builder.",
+        copy=False,
+    )
 
     @api.model
     def ensure_access_rights(self):
