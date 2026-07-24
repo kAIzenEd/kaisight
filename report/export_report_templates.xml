@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Wide landscape page so tabular exports can fit many columns -->
+    <record id="paperformat_export_table" model="report.paperformat">
+        <field name="name">kaisight Export Table</field>
+        <field name="default" eval="False"/>
+        <field name="format">A3</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">8</field>
+        <field name="margin_bottom">8</field>
+        <field name="margin_left">6</field>
+        <field name="margin_right">6</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">0</field>
+        <field name="dpi">96</field>
+    </record>
+
+    <record id="action_report_export_table" model="ir.actions.report">
+        <field name="name">kaisight export</field>
+        <field name="model">kai.view.report.builder</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">kaisight.export_table</field>
+        <field name="report_file">kaisight.export_table</field>
+        <field name="paperformat_id" ref="paperformat_export_table"/>
+        <field name="print_report_name">'Export - %s' % (object.name or 'Report')</field>
+    </record>
+
+    <template id="export_table">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <div class="page o_kai_export_page"
+                     t-att-style="'font-size: %s;' % (font_size or '7pt')">
+                    <style type="text/css">
+                        .o_kai_export_page {
+                            width: 100%;
+                        }
+                        .o_kai_export_page h2 {
+                            font-size: 1.6em;
+                            margin: 0 0 0.25em 0;
+                            font-weight: 700;
+                        }
+                        .o_kai_export_meta {
+                            margin: 0 0 0.75em 0;
+                            color: #666;
+                            font-size: 0.95em;
+                        }
+                        .o_kai_export_table {
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            table-layout: fixed;
+                            border-collapse: collapse;
+                            margin: 0;
+                        }
+                        .o_kai_export_table th,
+                        .o_kai_export_table td {
+                            border: 0.5pt solid #999;
+                            padding: 2pt 3pt;
+                            vertical-align: top;
+                            word-wrap: break-word;
+                            overflow-wrap: anywhere;
+                            word-break: break-word;
+                            white-space: normal;
+                            line-height: 1.25;
+                        }
+                        .o_kai_export_table thead th {
+                            background: #efefef;
+                            font-weight: 700;
+                        }
+                        .o_kai_export_table td.o_kai_export_photo {
+                            text-align: center;
+                            vertical-align: middle;
+                            width: 56px;
+                        }
+                        .o_kai_export_table img.o_kai_export_photo_img {
+                            max-width: 48px;
+                            max-height: 48px;
+                            width: 48px;
+                            height: 48px;
+                            object-fit: cover;
+                            border-radius: 4px;
+                        }
+                    </style>
+                    <h2 t-esc="report_title"/>
+                    <p class="o_kai_export_meta">
+                        <t t-esc="record_count"/> records
+                        <t t-if="generated_on"> · Generated <t t-esc="generated_on"/></t>
+                        <t t-if="column_count"> · <t t-esc="column_count"/> columns</t>
+                    </p>
+                    <table class="o_kai_export_table">
+                        <thead>
+                            <tr>
+                                <t t-foreach="headers" t-as="header">
+                                    <th t-esc="header"/>
+                                </t>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <t t-if="not rows">
+                                <tr>
+                                    <td t-att-colspan="len(headers)" style="text-align:center;color:#888;">
+                                        No records match the selected filters.
+                                    </td>
+                                </tr>
+                            </t>
+                            <t t-foreach="rows" t-as="row">
+                                <tr>
+                                    <t t-foreach="row" t-as="cell">
+                                        <t t-if="cell and isinstance(cell, dict) and cell.get('type') == 'image' and cell.get('value')">
+                                            <td class="o_kai_export_photo">
+                                                <img class="o_kai_export_photo_img"
+                                                     t-att-src="image_data_uri(cell['value'])"
+                                                     alt=""/>
+                                            </td>
+                                        </t>
+                                        <t t-elif="cell and isinstance(cell, dict)">
+                                            <td t-esc="cell.get('value') or ''"/>
+                                        </t>
+                                        <t t-else="">
+                                            <td t-esc="cell"/>
+                                        </t>
+                                    </t>
+                                </tr>
+                            </t>
+                        </tbody>
+                    </table>
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>

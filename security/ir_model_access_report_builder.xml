@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Bind by technical model name so upgrades do not require model_* XML IDs.
+        These record IDs reclaim the ACL rows previously defined in the CSV.
+    -->
+    <record id="access_kai_view_report_source_user" model="ir.model.access">
+        <field name="name">kai.view.report.source user</field>
+        <field name="model_id" search="[('model', '=', 'kai.view.report.source')]"/>
+        <field name="group_id" ref="group_kai_view_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="0"/>
+        <field name="perm_create" eval="0"/>
+        <field name="perm_unlink" eval="0"/>
+    </record>
+
+    <record id="access_kai_view_report_source_manager" model="ir.model.access">
+        <field name="name">kai.view.report.source manager</field>
+        <field name="model_id" search="[('model', '=', 'kai.view.report.source')]"/>
+        <field name="group_id" ref="group_kai_view_manager"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <record id="access_kai_view_report_builder_user" model="ir.model.access">
+        <field name="name">kai.view.report.builder user</field>
+        <field name="model_id" search="[('model', '=', 'kai.view.report.builder')]"/>
+        <field name="group_id" ref="group_kai_view_user"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <record id="access_kai_view_report_builder_manager" model="ir.model.access">
+        <field name="name">kai.view.report.builder manager</field>
+        <field name="model_id" search="[('model', '=', 'kai.view.report.builder')]"/>
+        <field name="group_id" ref="group_kai_view_manager"/>
+        <field name="perm_read" eval="1"/>
+        <field name="perm_write" eval="1"/>
+        <field name="perm_create" eval="1"/>
+        <field name="perm_unlink" eval="1"/>
+    </record>
+
+    <!-- Safety net if search somehow misses during an edge-case upgrade -->
+    <function model="kai.view.report.source" name="ensure_access_rights"/>
+</odoo>

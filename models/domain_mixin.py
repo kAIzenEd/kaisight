@@ -8,7 +8,7 @@ from odoo.tools.safe_eval import safe_eval
 
 class KaiViewDomainMixin(models.AbstractModel):
     _name = "kai.view.domain.mixin"
-    _description = "kaiSight domain helpers"
+    _description = "kaisight domain helpers"
 
     @api.model
     def _parse_domain_string(self, domain_str, label=_("Filter")):

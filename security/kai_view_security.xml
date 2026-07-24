@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <record id="module_category_kai_view" model="ir.module.category">
-        <field name="name">kaiSight</field>
+        <field name="name">kaisight</field>
         <field name="description">Dashboards and saved reports</field>
         <field name="sequence">25</field>
     </record>
 
     <record id="privilege_kai_view" model="res.groups.privilege">
-        <field name="name">kaiSight</field>
+        <field name="name">kaisight</field>
         <field name="sequence">25</field>
         <field name="category_id" ref="module_category_kai_view"/>
     </record>
@@ -28,29 +28,57 @@
     </record>
 
     <record id="rule_dashboard_user" model="ir.rule">
-        <field name="name">kaiSight dashboard: own or shared</field>
+        <field name="name">kaisight dashboard: own or shared</field>
         <field name="model_id" ref="model_kai_view_dashboard"/>
         <field name="domain_force">['|', ('is_shared', '=', True), ('user_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('group_kai_view_user'))]"/>
     </record>
 
     <record id="rule_report_user" model="ir.rule">
-        <field name="name">kaiSight report: own or shared</field>
+        <field name="name">kaisight report: own or shared</field>
         <field name="model_id" ref="model_kai_view_report"/>
         <field name="domain_force">['|', ('is_shared', '=', True), ('user_id', '=', user.id)]</field>
         <field name="groups" eval="[(4, ref('group_kai_view_user'))]"/>
     </record>
 
     <record id="rule_dashboard_manager" model="ir.rule">
-        <field name="name">kaiSight dashboard: administrator all</field>
+        <field name="name">kaisight dashboard: administrator all</field>
         <field name="model_id" ref="model_kai_view_dashboard"/>
         <field name="domain_force">[(1, '=', 1)]</field>
         <field name="groups" eval="[(4, ref('group_kai_view_manager'))]"/>
     </record>
 
     <record id="rule_report_manager" model="ir.rule">
-        <field name="name">kaiSight report: administrator all</field>
+        <field name="name">kaisight report: administrator all</field>
         <field name="model_id" ref="model_kai_view_report"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_kai_view_manager'))]"/>
+    </record>
+
+    <record id="rule_report_schedule_user" model="ir.rule">
+        <field name="name">kaisight schedule: own</field>
+        <field name="model_id" ref="model_kai_view_report_schedule"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_kai_view_user'))]"/>
+    </record>
+
+    <record id="rule_report_schedule_manager" model="ir.rule">
+        <field name="name">kaisight schedule: administrator all</field>
+        <field name="model_id" ref="model_kai_view_report_schedule"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('group_kai_view_manager'))]"/>
+    </record>
+
+    <record id="rule_report_run_user" model="ir.rule">
+        <field name="name">kaisight generated report: own</field>
+        <field name="model_id" ref="model_kai_view_report_run"/>
+        <field name="domain_force">[('user_id', '=', user.id)]</field>
+        <field name="groups" eval="[(4, ref('group_kai_view_user'))]"/>
+    </record>
+
+    <record id="rule_report_run_manager" model="ir.rule">
+        <field name="name">kaisight generated report: administrator all</field>
+        <field name="model_id" ref="model_kai_view_report_run"/>
         <field name="domain_force">[(1, '=', 1)]</field>
         <field name="groups" eval="[(4, ref('group_kai_view_manager'))]"/>
     </record>

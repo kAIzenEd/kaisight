@@ -7,3 +7,7 @@ access_kai_view_report_user,kai.view.report user,model_kai_view_report,group_kai
 access_kai_view_report_manager,kai.view.report manager,model_kai_view_report,group_kai_view_manager,1,1,1,1
 access_kai_view_report_field_user,kai.view.report.field user,model_kai_view_report_field,group_kai_view_user,1,1,1,1
 access_kai_view_report_field_manager,kai.view.report.field manager,model_kai_view_report_field,group_kai_view_manager,1,1,1,1
+access_kai_view_report_schedule_user,kai.view.report.schedule user,model_kai_view_report_schedule,group_kai_view_user,1,1,1,1
+access_kai_view_report_schedule_manager,kai.view.report.schedule manager,model_kai_view_report_schedule,group_kai_view_manager,1,1,1,1
+access_kai_view_report_run_user,kai.view.report.run user,model_kai_view_report_run,group_kai_view_user,1,0,0,0
+access_kai_view_report_run_manager,kai.view.report.run manager,model_kai_view_report_run,group_kai_view_manager,1,1,1,1

@@ -7,7 +7,7 @@ import { DomainField } from "@web/views/fields/domain/domain_field";
 const KAI_DOMAIN_MODELS = new Set(["kai.view.widget", "kai.view.report"]);
 
 /**
- * On widget/report forms, validate filters with kaiSight's server helper so users
+ * On widget/report forms, validate filters with kaisight's server helper so users
  * get a clear error instead of a generic “Domain is invalid”.
  */
 patch(DomainField.prototype, {

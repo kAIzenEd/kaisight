@@ -3,9 +3,9 @@
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Component, onWillStart, useState } from "@odoo/owl";
-import { KaiSightCountWidget } from "../widgets/count_widget";
-import { KaiSightChartWidget } from "../widgets/chart_widget";
-import { KaiSightListWidget } from "../widgets/list_widget";
+import { KaisightCountWidget } from "../widgets/count_widget";
+import { KaisightChartWidget } from "../widgets/chart_widget";
+import { KaisightListWidget } from "../widgets/list_widget";
 
 /**
  * Build a window action dict that satisfies the web client's ``views`` requirement.
@@ -48,12 +48,12 @@ function makeActWindowAction({
     return action;
 }
 
-export class KaiSightDashboardAction extends Component {
+export class KaisightDashboardAction extends Component {
     static template = "kaisight.Dashboard";
     static components = {
-        KaiSightCountWidget: KaiSightCountWidget,
-        KaiSightChartWidget: KaiSightChartWidget,
-        KaiSightListWidget: KaiSightListWidget,
+        KaisightCountWidget: KaisightCountWidget,
+        KaisightChartWidget: KaisightChartWidget,
+        KaisightListWidget: KaisightListWidget,
     };
     static props = ["*"];
 
@@ -192,4 +192,4 @@ export class KaiSightDashboardAction extends Component {
     }
 }
 
-registry.category("actions").add("kai_view_dashboard", KaiSightDashboardAction);
+registry.category("actions").add("kai_view_dashboard", KaisightDashboardAction);

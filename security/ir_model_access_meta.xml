@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!--
+        Report Builder / Saved Reports need to resolve column definitions
+        (ir.model + ir.model.fields). Grant read to kaisight users so office
+        roles (Registrar, Secretary, etc.) can open and export reports.
+    -->
+    <data noupdate="0">
+
+        <record id="access_ir_model_kai_view_user" model="ir.model.access">
+            <field name="name">ir.model kaisight user</field>
+            <field name="model_id" search="[('model', '=', 'ir.model')]"/>
+            <field name="group_id" ref="group_kai_view_user"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+        <record id="access_ir_model_fields_kai_view_user" model="ir.model.access">
+            <field name="name">ir.model.fields kaisight user</field>
+            <field name="model_id" search="[('model', '=', 'ir.model.fields')]"/>
+            <field name="group_id" ref="group_kai_view_user"/>
+            <field name="perm_read" eval="True"/>
+            <field name="perm_write" eval="False"/>
+            <field name="perm_create" eval="False"/>
+            <field name="perm_unlink" eval="False"/>
+        </record>
+
+    </data>
+</odoo>

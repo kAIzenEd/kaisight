@@ -78,6 +78,27 @@ After changing JavaScript or SCSS assets, upgrade the module and hard-refresh th
 
 Issues and pull requests are welcome on GitHub.
 
+## Troubleshooting: `No module named 'odoo.addons.kAISight'`
+
+If the addon folder is `kaisight` but the database was installed when the module was named `kAISight`, Odoo still tries to import the old name and the registry fails to load.
+
+1. Keep the folder named exactly `kaisight` (lowercase).
+2. Rename the module in PostgreSQL (replace `odoonew` with your DB name):
+
+```bash
+docker compose exec -T odoo19-db psql -U odoo -d odoonew -c "
+UPDATE ir_module_module SET name = 'kaisight' WHERE name = 'kAISight';
+UPDATE ir_module_module_dependency SET name = 'kaisight' WHERE name = 'kAISight';
+UPDATE ir_model_data SET module = 'kaisight' WHERE module = 'kAISight';
+"
+```
+
+Or apply the included script: `rename_module_to_kaisight.sql`.
+
+3. Restart Odoo, then upgrade **kaisight** from Apps (or `-u kaisight`).
+
+The “no translation language detected” warnings during cron load are harmless and can be ignored.
+
 ## License
 
 This module is licensed under [LGPL-3](LICENSE).

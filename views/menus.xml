@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <menuitem id="menu_kai_view_root"
-        name="kaiSight"
+        name="kaisight"
         web_icon="kaisight,static/description/icon.svg"
         sequence="45"
         groups="kaisight.group_kai_view_user"/>
@@ -11,6 +11,35 @@
         parent="menu_kai_view_root"
         action="action_kai_view_dashboard_client"
         sequence="1"/>
+
+    <menuitem id="menu_kai_view_reports_root"
+        name="Reports"
+        parent="menu_kai_view_root"
+        sequence="5"/>
+
+    <menuitem id="menu_kai_view_reports"
+        name="Saved Reports"
+        parent="menu_kai_view_reports_root"
+        action="action_kai_view_reports"
+        sequence="1"/>
+
+    <menuitem id="menu_kai_view_report_schedules"
+        name="Scheduled Reports"
+        parent="menu_kai_view_reports_root"
+        action="action_kai_view_report_schedules"
+        sequence="2"/>
+
+    <menuitem id="menu_kai_view_report_runs"
+        name="Generated Reports"
+        parent="menu_kai_view_reports_root"
+        action="action_kai_view_report_runs"
+        sequence="3"/>
+
+    <menuitem id="menu_kai_view_report_builder"
+        name="Report Builder"
+        parent="menu_kai_view_reports_root"
+        action="action_kai_view_report_builder_client"
+        sequence="4"/>
 
     <menuitem id="menu_kai_view_configuration"
         name="Configuration"
@@ -24,9 +53,10 @@
         action="action_kai_view_dashboards"
         sequence="1"/>
 
-    <menuitem id="menu_kai_view_reports"
-        name="Saved reports"
+    <menuitem id="menu_kai_view_report_sources"
+        name="Data sources"
         parent="menu_kai_view_configuration"
-        action="action_kai_view_reports"
-        sequence="2"/>
+        action="action_kai_view_report_sources"
+        sequence="3"
+        groups="kaisight.group_kai_view_manager"/>
 </odoo>

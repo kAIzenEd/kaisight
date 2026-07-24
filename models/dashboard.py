@@ -3,9 +3,9 @@ from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError
 
 
-class KaiSightDashboard(models.Model):
+class KaisightDashboard(models.Model):
     _name = "kai.view.dashboard"
-    _description = "KaiSight Dashboard"
+    _description = "kaisight Dashboard"
     _order = "sequence, name, id"
 
     name = fields.Char(required=True, translate=True)

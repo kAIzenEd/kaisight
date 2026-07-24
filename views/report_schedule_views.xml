@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_kai_view_report_schedule_list" model="ir.ui.view">
+        <field name="name">kai.view.report.schedule.list</field>
+        <field name="model">kai.view.report.schedule</field>
+        <field name="arch" type="xml">
+            <list string="Scheduled Reports">
+                <field name="name"/>
+                <field name="report_id"/>
+                <field name="interval_type"/>
+                <field name="export_format"/>
+                <field name="store_file"/>
+                <field name="send_email"/>
+                <field name="last_run_date"/>
+                <field name="active"/>
+                <button name="action_run_now"
+                        type="object"
+                        string="Run now"
+                        class="btn btn-secondary"
+                        icon="fa-play"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_kai_view_report_schedule_form" model="ir.ui.view">
+        <field name="name">kai.view.report.schedule.form</field>
+        <field name="model">kai.view.report.schedule</field>
+        <field name="arch" type="xml">
+            <form string="Scheduled Report">
+                <header>
+                    <button name="action_run_now"
+                            type="object"
+                            string="Run now"
+                            class="btn-primary"
+                            help="Generate the file immediately (also saves / emails per options below)."/>
+                    <button name="action_open_runs"
+                            type="object"
+                            string="Generated files"
+                            class="btn-secondary"/>
+                    <field name="active" widget="boolean_toggle"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button class="oe_stat_button" type="object"
+                                name="action_open_runs" icon="fa-file-excel-o">
+                            <field name="run_count" widget="statinfo" string="Files"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="e.g. Student directory — monthly"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Report">
+                            <field name="report_id"/>
+                            <field name="model_id"/>
+                            <field name="user_id"/>
+                            <field name="export_format"/>
+                        </group>
+                        <group string="When to run">
+                            <field name="interval_type"/>
+                            <field name="weekday"
+                                      invisible="interval_type != 'weekly'"
+                                      required="interval_type == 'weekly'"/>
+                            <field name="day_of_month"
+                                      invisible="interval_type != 'monthly' or use_last_day"
+                                      required="interval_type == 'monthly' and not use_last_day"/>
+                            <field name="use_last_day"
+                                      invisible="interval_type != 'monthly'"/>
+                            <field name="last_run_date"/>
+                            <field name="last_run_id"/>
+                        </group>
+                    </group>
+                    <group string="Delivery">
+                        <group>
+                            <field name="store_file"/>
+                            <field name="send_email"/>
+                        </group>
+                        <group>
+                            <field name="partner_ids"
+                                      widget="many2many_tags"
+                                      invisible="not send_email"
+                                      required="send_email"/>
+                        </group>
+                    </group>
+                    <p class="text-muted">
+                        A nightly job checks active schedules. “Run now” uses the same
+                        export path immediately. Scheduled jobs cannot push a browser
+                        download — files are emailed and/or stored under Generated Reports.
+                    </p>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_kai_view_report_run_list" model="ir.ui.view">
+        <field name="name">kai.view.report.run.list</field>
+        <field name="model">kai.view.report.run</field>
+        <field name="arch" type="xml">
+            <list string="Generated Reports" create="0">
+                <field name="create_date" string="Generated"/>
+                <field name="name"/>
+                <field name="report_id"/>
+                <field name="export_format"/>
+                <field name="state"
+                         decoration-success="state == 'done'"
+                         decoration-danger="state == 'failed'"
+                         widget="badge"/>
+                <field name="email_sent"/>
+                <field name="filename" optional="show"/>
+                <button name="action_download"
+                        type="object"
+                        string="Download"
+                        class="btn btn-primary"
+                        icon="fa-download"
+                        invisible="not attachment_id"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_kai_view_report_run_form" model="ir.ui.view">
+        <field name="name">kai.view.report.run.form</field>
+        <field name="model">kai.view.report.run</field>
+        <field name="arch" type="xml">
+            <form string="Generated Report" create="0" edit="0">
+                <header>
+                    <button name="action_download"
+                            type="object"
+                            string="Download"
+                            class="btn-primary"
+                            invisible="not attachment_id"/>
+                    <field name="state" widget="statusbar"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="report_id"/>
+                            <field name="schedule_id"/>
+                            <field name="user_id"/>
+                        </group>
+                        <group>
+                            <field name="create_date"/>
+                            <field name="export_format"/>
+                            <field name="email_sent"/>
+                            <field name="filename"/>
+                            <field name="attachment_id" invisible="1"/>
+                            <field name="datas" filename="filename"/>
+                        </group>
+                    </group>
+                    <field name="error_message"
+                             invisible="state != 'failed'"
+                             readonly="1"/>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_kai_view_report_schedules" model="ir.actions.act_window">
+        <field name="name">Scheduled Reports</field>
+        <field name="res_model">kai.view.report.schedule</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No scheduled reports yet
+            </p>
+            <p>
+                Pick a saved report, choose a day (or weekly/daily), and deliver
+                by email and/or keep the file under Generated Reports.
+            </p>
+        </field>
+    </record>
+
+    <record id="action_kai_view_report_runs" model="ir.actions.act_window">
+        <field name="name">Generated Reports</field>
+        <field name="res_model">kai.view.report.run</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No generated files yet
+            </p>
+            <p>
+                Files from scheduled exports (and Run now) appear here for download.
+            </p>
+        </field>
+    </record>
+</odoo>

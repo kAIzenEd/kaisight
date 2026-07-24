@@ -2,7 +2,7 @@
 
 import { Component } from "@odoo/owl";
 
-export class KaiSightListWidget extends Component {
+export class KaisightListWidget extends Component {
     static template = "kaisight.ListWidget";
     static props = {
         widget: Object,
