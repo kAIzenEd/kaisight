@@ -88,11 +88,43 @@ class KaisightReport(models.Model):
         index=True,
     )
     is_shared = fields.Boolean(string="Shared with all users")
-    is_favorite = fields.Boolean(string="Favorite", groups="base.group_no_one")
+    report_type = fields.Selection(
+        [("list", "List Report"), ("pivot", "Pivot Table Report")],
+        default="list",
+        required=True,
+        string="Report type",
+    )
+    pivot_row_field_ids = fields.Many2many(
+        "ir.model.fields",
+        "kai_report_pivot_rows_rel",
+        "report_id",
+        "field_id",
+        string="Pivot Row Fields",
+        help="Fields used for grouping rows in pivot table view.",
+    )
+    pivot_col_field_ids = fields.Many2many(
+        "ir.model.fields",
+        "kai_report_pivot_cols_rel",
+        "report_id",
+        "field_id",
+        string="Pivot Column Fields",
+        help="Fields used for grouping columns in pivot table view.",
+    )
+    pivot_measure_field_ids = fields.Many2many(
+        "ir.model.fields",
+        "kai_report_pivot_measures_rel",
+        "report_id",
+        "field_id",
+        string="Pivot Measure Fields",
+        help="Fields used for measures/values in pivot table view.",
+    )
 
     @api.onchange("model_id")
     def _onchange_model_id(self):
         self.field_ids = False
+        self.pivot_row_field_ids = False
+        self.pivot_col_field_ids = False
+        self.pivot_measure_field_ids = False
         self.domain = "[]"
 
     @api.model_create_multi
@@ -243,6 +275,7 @@ class KaisightReport(models.Model):
                 "description": r.description or "",
                 "model": r.model_name,
                 "is_shared": r.is_shared,
+                "report_type": r.report_type or "list",
             }
             for r in reports
         ]
@@ -272,14 +305,6 @@ class KaisightReport(models.Model):
                 _("Model “%s” is not available.") % self.model_name
             )
         self._sync_list_view()
-        view_modes = (self.view_mode or "list,form").split(",")
-        view_modes = [m.strip() for m in view_modes if m.strip()]
-        views = []
-        for mode in view_modes:
-            if mode == "list" and self.list_view_id:
-                views.append((self.list_view_id.id, "list"))
-            else:
-                views.append((False, mode))
 
         # Drop list-button context so the client opens the target model,
         # not the saved-report record again.
@@ -296,6 +321,32 @@ class KaisightReport(models.Model):
             if key not in skip_keys and not str(key).startswith("default_")
         }
         ctx.update(self._parse_context())
+
+        if self.report_type == "pivot":
+            row_fields = [f.name for f in self.sudo().pivot_row_field_ids if f.name]
+            col_fields = [f.name for f in self.sudo().pivot_col_field_ids if f.name]
+            measure_fields = [f.name for f in self.sudo().pivot_measure_field_ids if f.name]
+            if row_fields:
+                ctx["group_by"] = row_fields
+            if col_fields:
+                ctx["pivot_column_groupby"] = col_fields
+            ctx["pivot_measures"] = measure_fields if measure_fields else ["__count"]
+
+            view_modes = ["pivot", "list", "form"]
+            views = [
+                (False, "pivot"),
+                (self.list_view_id.id if self.list_view_id else False, "list"),
+                (False, "form"),
+            ]
+        else:
+            view_modes = (self.view_mode or "list,form").split(",")
+            view_modes = [m.strip() for m in view_modes if m.strip()]
+            views = []
+            for mode in view_modes:
+                if mode == "list" and self.list_view_id:
+                    views.append((self.list_view_id.id, "list"))
+                else:
+                    views.append((False, mode))
 
         action = {
             "type": "ir.actions.act_window",

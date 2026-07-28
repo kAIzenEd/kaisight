@@ -145,6 +145,13 @@ export class KaisightReportBuilderAction extends Component {
             exporting: false,
             showSaveDialog: false,
             error: null,
+            // Pivot Table state
+            reportType: "list",
+            pivotRows: [],
+            pivotCols: [],
+            pivotMeasures: [],
+            pivotPreviewData: null,
+            loadingPivotPreview: false,
         });
 
         onWillStart(async () => {
@@ -205,6 +212,10 @@ export class KaisightReportBuilderAction extends Component {
         this.state.quickFilters = {};
         this.state.recordCount = null;
         this.state.collapsedFieldGroups = {};
+        this.state.pivotRows = [];
+        this.state.pivotCols = [];
+        this.state.pivotMeasures = [];
+        this.state.pivotPreviewData = null;
         try {
             const catalog = await this.orm.call(
                 "kai.view.report.builder",
@@ -245,6 +256,10 @@ export class KaisightReportBuilderAction extends Component {
                 this.applySelection(pick);
             }
             await this.refreshCount();
+            if (this.state.reportType === "pivot") {
+                this.initDefaultPivotFields();
+                await this.refreshPivotPreview();
+            }
         } catch (e) {
             this.state.error = e.message || _t("Could not load fields.");
         }
@@ -514,12 +529,18 @@ export class KaisightReportBuilderAction extends Component {
         }
         this.state.quickFilters = next;
         await this.refreshCount();
+        if (this.state.reportType === "pivot") {
+            await this.refreshPivotPreview();
+        }
     }
 
     async clearAllFilters() {
         this.state.quickFilters = {};
         this.state.domain = "[]";
         await this.refreshCount();
+        if (this.state.reportType === "pivot") {
+            await this.refreshPivotPreview();
+        }
     }
 
     filterSelectValue(fieldName) {
@@ -577,6 +598,9 @@ export class KaisightReportBuilderAction extends Component {
                     if (record.length) {
                         this.state.domain = record[0].domain || "[]";
                         await this.refreshCount();
+                        if (this.state.reportType === "pivot") {
+                            await this.refreshPivotPreview();
+                        }
                     }
                     await this.orm.unlink("kai.view.report.builder", [builderId]);
                 },
@@ -584,19 +608,158 @@ export class KaisightReportBuilderAction extends Component {
         );
     }
 
+    // ------------------------------------------------------------------
+    // Pivot Table Methods
+    // ------------------------------------------------------------------
+
+    get allFieldsMap() {
+        const map = {};
+        for (const group of this.state.fieldGroups || []) {
+            for (const f of group.fields || []) {
+                map[f.name] = f;
+            }
+        }
+        return map;
+    }
+
+    get groupableFields() {
+        const allowedTypes = ["selection", "many2one", "char", "date", "boolean"];
+        const res = [];
+        for (const group of this.state.fieldGroups || []) {
+            for (const f of group.fields || []) {
+                if (allowedTypes.includes(f.type)) {
+                    res.push(f);
+                }
+            }
+        }
+        return res;
+    }
+
+    get measureableFields() {
+        const allowedTypes = ["integer", "float", "monetary"];
+        const res = [];
+        for (const group of this.state.fieldGroups || []) {
+            for (const f of group.fields || []) {
+                if (allowedTypes.includes(f.type)) {
+                    res.push(f);
+                }
+            }
+        }
+        return res;
+    }
+
+    async setReportType(type) {
+        this.state.reportType = type;
+        if (type === "pivot") {
+            this.initDefaultPivotFields();
+            await this.refreshPivotPreview();
+        }
+    }
+
+    initDefaultPivotFields() {
+        if (this.state.pivotRows.length === 0 && this.state.pivotCols.length === 0) {
+            const groupable = this.groupableFields;
+            if (groupable.length > 0) {
+                this.state.pivotRows = [groupable[0].name];
+            }
+            if (groupable.length > 1) {
+                this.state.pivotCols = [groupable[1].name];
+            }
+        }
+    }
+
+    async addPivotRow(ev) {
+        const fname = ev.target.value;
+        if (!fname) return;
+        if (!this.state.pivotRows.includes(fname)) {
+            this.state.pivotRows = [...this.state.pivotRows, fname];
+            await this.refreshPivotPreview();
+        }
+        ev.target.value = "";
+    }
+
+    async removePivotRow(fname) {
+        this.state.pivotRows = this.state.pivotRows.filter((f) => f !== fname);
+        await this.refreshPivotPreview();
+    }
+
+    async addPivotCol(ev) {
+        const fname = ev.target.value;
+        if (!fname) return;
+        if (!this.state.pivotCols.includes(fname)) {
+            this.state.pivotCols = [...this.state.pivotCols, fname];
+            await this.refreshPivotPreview();
+        }
+        ev.target.value = "";
+    }
+
+    async removePivotCol(fname) {
+        this.state.pivotCols = this.state.pivotCols.filter((f) => f !== fname);
+        await this.refreshPivotPreview();
+    }
+
+    async addPivotMeasure(ev) {
+        const fname = ev.target.value;
+        if (!fname) return;
+        if (!this.state.pivotMeasures.includes(fname)) {
+            this.state.pivotMeasures = [...this.state.pivotMeasures, fname];
+            await this.refreshPivotPreview();
+        }
+        ev.target.value = "";
+    }
+
+    async removePivotMeasure(fname) {
+        this.state.pivotMeasures = this.state.pivotMeasures.filter((f) => f !== fname);
+        await this.refreshPivotPreview();
+    }
+
+    async refreshPivotPreview() {
+        if (!this.state.selectedSource || this.state.reportType !== "pivot") {
+            return;
+        }
+        this.state.loadingPivotPreview = true;
+        try {
+            const data = await this.orm.call(
+                "kai.view.report.builder",
+                "get_pivot_preview_data",
+                [],
+                {
+                    model_name: this.state.selectedSource.model,
+                    row_fields: this.state.pivotRows,
+                    col_fields: this.state.pivotCols,
+                    measure_fields: this.state.pivotMeasures,
+                    domain_str: this.state.domain,
+                    quick_filters: this.state.quickFilters,
+                }
+            );
+            this.state.pivotPreviewData = data;
+        } catch (e) {
+            console.error("Error loading pivot preview", e);
+            this.state.pivotPreviewData = null;
+        } finally {
+            this.state.loadingPivotPreview = false;
+        }
+    }
+
     async exportReport(format) {
-        if (!this.selectedCount) {
+        if (this.state.reportType === "list" && !this.selectedCount) {
             this.notification.add(_t("Select at least one column."), { type: "warning" });
             return;
         }
         this.state.exporting = true;
         try {
+            const fieldList = this.state.reportType === "pivot"
+                ? [...this.state.pivotRows, ...this.state.pivotCols, ...this.state.pivotMeasures]
+                : this.selectedFieldList;
+            if (!fieldList.length) {
+                fieldList.push("name");
+            }
             const action = await this.orm.call(
                 "kai.view.report.builder",
                 "export_report",
                 [
                     this.state.selectedSource.model,
-                    this.selectedFieldList,
+                    fieldList,
                     this.state.domain,
                     format,
                 ],
@@ -615,7 +778,7 @@ export class KaisightReportBuilderAction extends Component {
     }
 
     async openInOdoo() {
-        if (!this.selectedCount) {
+        if (this.state.reportType === "list" && !this.selectedCount) {
             this.notification.add(_t("Select at least one column."), { type: "warning" });
             return;
         }
@@ -623,13 +786,18 @@ export class KaisightReportBuilderAction extends Component {
             const action = await this.orm.call(
                 "kai.view.report.builder",
                 "action_open_in_odoo",
-                [
-                    this.state.selectedSource.model,
-                    this.selectedFieldList,
-                    this.state.domain,
-                    this.state.selectedSource.name,
-                ],
-                { quick_filters: this.state.quickFilters }
+                [],
+                {
+                    model_name: this.state.selectedSource.model,
+                    field_names: this.selectedFieldList,
+                    domain_str: this.state.domain,
+                    name: this.state.selectedSource.name,
+                    quick_filters: this.state.quickFilters,
+                    report_type: this.state.reportType,
+                    pivot_row_names: this.state.pivotRows,
+                    pivot_col_names: this.state.pivotCols,
+                    pivot_measure_names: this.state.pivotMeasures,
+                }
             );
             await this.actionService.doAction(action);
         } catch (e) {
@@ -638,7 +806,7 @@ export class KaisightReportBuilderAction extends Component {
     }
 
     openSaveDialog() {
-        if (!this.selectedCount) {
+        if (this.state.reportType === "list" && !this.selectedCount) {
             this.notification.add(_t("Select at least one column."), { type: "warning" });
             return;
         }
@@ -656,6 +824,10 @@ export class KaisightReportBuilderAction extends Component {
             domain_str: this.state.domain,
             is_shared: isShared,
             quick_filters: this.state.quickFilters,
+            report_type: this.state.reportType,
+            pivot_row_names: this.state.pivotRows,
+            pivot_col_names: this.state.pivotCols,
+            pivot_measure_names: this.state.pivotMeasures,
         });
         this.notification.add(_t("Report saved."), { type: "success" });
     }

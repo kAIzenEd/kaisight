@@ -10,6 +10,7 @@
                 <field name="sequence" widget="handle" optional="hide"/>
                 <!-- Click the name (row) to edit the saved report definition. -->
                 <field name="name" string="Report"/>
+                <field name="report_type" widget="badge" decoration-info="report_type == 'list'" decoration-primary="report_type == 'pivot'"/>
                 <field name="description" optional="show"/>
                 <field name="model_id" string="Data"/>
                 <field name="is_shared" optional="hide"/>
@@ -61,7 +62,8 @@
                     <group>
                         <group>
                             <field name="model_id"/>
-                            <field name="view_mode"/>
+                            <field name="report_type" widget="radio" options="{'horizontal': true}"/>
+                            <field name="view_mode" invisible="report_type == 'pivot'"/>
                             <field name="user_id" invisible="1"/>
                         </group>
                         <group>
@@ -74,14 +76,14 @@
                     <field name="model_name" invisible="1"/>
                     <field name="res_model_name" invisible="1"/>
                     <notebook>
-                        <page string="Data" name="data">
+                        <page string="Data &amp; Filters" name="data">
                             <group>
                                 <p class="text-muted" colspan="2">
                                     Select a model first. Filters must use fields from that model only.
                                 </p>
                                 <field name="domain" widget="domain" options="{'model': 'res_model_name', 'in_dialog': True}" readonly="not model_id"/>
                             </group>
-                            <group string="Columns" invisible="not model_id">
+                            <group string="List Columns" invisible="not model_id or report_type == 'pivot'">
                                 <field name="field_ids" nolabel="1" colspan="2">
                                     <list editable="bottom">
                                         <field name="sequence" widget="handle"/>
@@ -89,9 +91,16 @@
                                     </list>
                                 </field>
                             </group>
-                            <p class="text-muted" invisible="not model_id">
+                            <p class="text-muted" invisible="not model_id or report_type == 'pivot'">
                                 Choose which fields appear in the list view. Leave empty to use the model’s default list view.
                             </p>
+                        </page>
+                        <page string="Pivot Table Configuration" name="pivot" invisible="report_type != 'pivot'">
+                            <group>
+                                <field name="pivot_row_field_ids" widget="many2many_tags" domain="[('model_id', '=', model_id)]"/>
+                                <field name="pivot_col_field_ids" widget="many2many_tags" domain="[('model_id', '=', model_id)]"/>
+                                <field name="pivot_measure_field_ids" widget="many2many_tags" domain="[('model_id', '=', model_id)]"/>
+                            </group>
                         </page>
                         <page string="Advanced" name="advanced">
                             <group>
