@@ -53,5 +53,5 @@ Builder data source after install — no hardcoded school fields required.
     "application": True,
     "installable": True,
     "icon": "static/description/icon.svg",
-    "post_init_hook": "hooks.post_init_hook",
+    "post_init_hook": "post_init_hook",
 }
