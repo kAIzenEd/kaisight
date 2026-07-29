@@ -99,7 +99,7 @@
                             <group>
                                 <field name="pivot_row_field_ids" widget="many2many_tags" domain="[('model_id', '=', model_id)]"/>
                                 <field name="pivot_col_field_ids" widget="many2many_tags" domain="[('model_id', '=', model_id)]"/>
-                                <field name="pivot_measure_field_ids" widget="many2many_tags" domain="[('model_id', '=', model_id)]"/>
+                                <field name="pivot_measure_field_ids" widget="many2many_tags" domain="[('model_id', '=', model_id), ('ttype', 'in', ['integer', 'float', 'monetary'])]"/>
                             </group>
                         </page>
                         <page string="Advanced" name="advanced">

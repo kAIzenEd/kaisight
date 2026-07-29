@@ -262,19 +262,39 @@
                                                 <span class="text-muted d-block small">Metrics &amp; values to aggregate</span>
                                             </div>
                                             <div class="card-body pt-2">
-                                                <div class="d-flex flex-wrap gap-1 mb-2">
-                                                    <t t-foreach="state.pivotMeasures" t-as="mf" t-key="mf">
-                                                        <span class="badge bg-success text-white d-inline-flex align-items-center gap-1 p-2">
-                                                            <t t-esc="allFieldsMap[mf]?.label || mf"/>
-                                                            <i class="fa fa-times cursor-pointer ms-1" t-on-click="() => this.removePivotMeasure(mf)"/>
-                                                        </span>
+                                                <div class="d-flex flex-column gap-2 mb-2">
+                                                    <t t-foreach="state.pivotMeasures" t-as="mItem" t-key="typeof mItem === 'string' ? mItem : mItem.field">
+                                                        <t t-set="mFName" t-value="typeof mItem === 'string' ? mItem : mItem.field"/>
+                                                        <t t-set="mFAgg" t-value="typeof mItem === 'string' ? 'sum' : (mItem.agg || 'sum')"/>
+                                                        <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded shadow-sm">
+                                                            <div class="min-w-0">
+                                                                <strong class="d-block text-truncate small" t-esc="mFName === '__count' ? 'Record Count' : (allFieldsMap[mFName]?.label || mFName)"/>
+                                                            </div>
+                                                            <div class="d-flex align-items-center gap-1 ms-2">
+                                                                <select class="form-select form-select-sm py-0 px-1"
+                                                                    style="font-size: 0.75rem; width: 75px;"
+                                                                    t-att-value="mFAgg"
+                                                                    t-on-change="(ev) => this.changePivotMeasureAgg(mFName, ev.target.value)"
+                                                                    t-att-disabled="mFName === '__count'">
+                                                                    <option value="sum">Sum</option>
+                                                                    <option value="avg">Avg</option>
+                                                                    <option value="count">Count</option>
+                                                                    <option value="min">Min</option>
+                                                                    <option value="max">Max</option>
+                                                                </select>
+                                                                <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-1" t-on-click="() => this.removePivotMeasure(mFName)">
+                                                                    <i class="fa fa-times"/>
+                                                                </button>
+                                                            </div>
+                                                        </div>
                                                     </t>
-                                                    <span t-if="!state.pivotMeasures.length" class="badge bg-secondary p-2">Record Count (Default)</span>
+                                                    <span t-if="!state.pivotMeasures.length" class="badge bg-secondary p-2 align-self-start">Record Count (Default)</span>
                                                 </div>
                                                 <select class="form-select form-select-sm" t-on-change="addPivotMeasure">
                                                     <option value="">+ Add Measure / Metric…</option>
+                                                    <option value="__count">Record Count</option>
                                                     <t t-foreach="measureableFields" t-as="mf" t-key="mf.name">
-                                                        <option t-att-value="mf.name" t-att-disabled="state.pivotMeasures.includes(mf.name)" t-esc="mf.label"/>
+                                                        <option t-att-value="mf.name" t-att-disabled="pivotMeasureNames.includes(mf.name)" t-esc="mf.label"/>
                                                     </t>
                                                 </select>
                                             </div>

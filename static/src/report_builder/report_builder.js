@@ -698,18 +698,41 @@ export class KaisightReportBuilderAction extends Component {
         await this.refreshPivotPreview();
     }
 
+    get pivotMeasureNames() {
+        return (this.state.pivotMeasures || [])
+            .map((m) => (typeof m === "string" ? m : m.field))
+            .filter((f) => f && f !== "__count");
+    }
+
     async addPivotMeasure(ev) {
         const fname = ev.target.value;
         if (!fname) return;
-        if (!this.state.pivotMeasures.includes(fname)) {
-            this.state.pivotMeasures = [...this.state.pivotMeasures, fname];
+        const existing = this.state.pivotMeasures.find(
+            (m) => (typeof m === "string" ? m : m.field) === fname
+        );
+        if (!existing) {
+            const newItem = { field: fname, agg: "sum" };
+            this.state.pivotMeasures = [...this.state.pivotMeasures, newItem];
             await this.refreshPivotPreview();
         }
         ev.target.value = "";
     }
 
+    async changePivotMeasureAgg(fname, agg) {
+        this.state.pivotMeasures = this.state.pivotMeasures.map((m) => {
+            const f = typeof m === "string" ? m : m.field;
+            if (f === fname) {
+                return { field: fname, agg: agg };
+            }
+            return m;
+        });
+        await this.refreshPivotPreview();
+    }
+
     async removePivotMeasure(fname) {
-        this.state.pivotMeasures = this.state.pivotMeasures.filter((f) => f !== fname);
+        this.state.pivotMeasures = this.state.pivotMeasures.filter(
+            (m) => (typeof m === "string" ? m : m.field) !== fname
+        );
         await this.refreshPivotPreview();
     }
 
@@ -749,7 +772,7 @@ export class KaisightReportBuilderAction extends Component {
         this.state.exporting = true;
         try {
             const fieldList = this.state.reportType === "pivot"
-                ? [...this.state.pivotRows, ...this.state.pivotCols, ...this.state.pivotMeasures]
+                ? [...this.state.pivotRows, ...this.state.pivotCols, ...this.pivotMeasureNames]
                 : this.selectedFieldList;
             if (!fieldList.length) {
                 fieldList.push("name");
@@ -796,7 +819,7 @@ export class KaisightReportBuilderAction extends Component {
                     report_type: this.state.reportType,
                     pivot_row_names: this.state.pivotRows,
                     pivot_col_names: this.state.pivotCols,
-                    pivot_measure_names: this.state.pivotMeasures,
+                    pivot_measure_names: this.pivotMeasureNames,
                 }
             );
             await this.actionService.doAction(action);
@@ -827,7 +850,7 @@ export class KaisightReportBuilderAction extends Component {
             report_type: this.state.reportType,
             pivot_row_names: this.state.pivotRows,
             pivot_col_names: this.state.pivotCols,
-            pivot_measure_names: this.state.pivotMeasures,
+            pivot_measure_names: this.pivotMeasureNames,
         });
         this.notification.add(_t("Report saved."), { type: "success" });
     }

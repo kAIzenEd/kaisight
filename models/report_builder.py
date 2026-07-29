@@ -705,7 +705,7 @@ class KaisightReportBuilder(models.TransientModel):
         domain_str="[]",
         quick_filters=None,
     ):
-        """Build matrix aggregated data for client-side live pivot preview."""
+        """Build matrix aggregated data for client-side live pivot preview with dynamic aggregations."""
         if not model_name or model_name not in self.env:
             raise UserError(_("Model “%s” is not available.") % model_name)
         self.env[model_name].check_access("read")
@@ -716,15 +716,36 @@ class KaisightReportBuilder(models.TransientModel):
 
         row_fields = [f for f in (row_fields or []) if f in fields_info]
         col_fields = [f for f in (col_fields or []) if f in fields_info]
-        measure_fields = [f for f in (measure_fields or []) if f in fields_info]
+
+        parsed_measures = []
+        for item in (measure_fields or []):
+            if isinstance(item, dict):
+                fname = item.get("field")
+                agg = item.get("agg", "sum")
+            else:
+                fname = str(item)
+                agg = "sum"
+
+            if fname == "__count":
+                parsed_measures.append({"key": "__count", "field": "__count", "agg": "count", "label": _("Record Count")})
+            elif fname in fields_info:
+                flabel = fields_info[fname]["string"]
+                ftype = fields_info[fname]["type"]
+                if ftype not in ("integer", "float", "monetary"):
+                    agg = "count"
+                agg_title = {"sum": _("Sum"), "avg": _("Average"), "min": _("Min"), "max": _("Max"), "count": _("Count")}.get(agg, _("Sum"))
+                key = f"{fname}_{agg}"
+                parsed_measures.append({"key": key, "field": fname, "agg": agg, "label": f"{flabel} ({agg_title})"})
 
         group_by = list(row_fields) + list(col_fields)
         rg_measures = []
-        for m in measure_fields:
-            if fields_info[m]["type"] in ("integer", "float", "monetary"):
-                rg_measures.append(m)
+        for m in parsed_measures:
+            if m["field"] == "__count":
+                continue
+            if m["agg"] == "sum":
+                rg_measures.append(m["field"])
             else:
-                rg_measures.append(f"{m}:count")
+                rg_measures.append(f"{m['field']}:{m['agg']}")
 
         if group_by:
             try:
@@ -761,9 +782,10 @@ class KaisightReportBuilder(models.TransientModel):
         grand_total = {}
 
         measure_labels = {}
-        for m in measure_fields:
-            measure_labels[m] = fields_info[m]["string"]
-        if not measure_fields:
+        if parsed_measures:
+            for m in parsed_measures:
+                measure_labels[m["key"]] = m["label"]
+        else:
             measure_labels["__count"] = _("Record Count")
 
         for group in rg_res:
@@ -776,22 +798,30 @@ class KaisightReportBuilder(models.TransientModel):
                 col_keys.append(c_val_list)
 
             cell_vals = {}
-            if measure_fields:
-                for m in measure_fields:
-                    val = group.get(m)
-                    if val is None or val is False:
-                        val = group.get(f"{m}_count") or group.get("__count") or 0
+            if parsed_measures:
+                for m in parsed_measures:
+                    mkey = m["key"]
+                    mf = m["field"]
+                    magg = m["agg"]
+                    if mf == "__count":
+                        val = group.get("__count", 1)
+                    else:
+                        val = group.get(mf)
+                        if val is None or val is False:
+                            val = group.get(f"{mf}_{magg}") or group.get(f"{mf}_count") or group.get("__count") or 0
                     if not isinstance(val, (int, float)):
                         val = 0
-                    cell_vals[m] = val
-                    row_totals.setdefault(r_val_list, {}).setdefault(m, 0)
-                    row_totals[r_val_list][m] += val
-                    col_totals.setdefault(c_val_list, {}).setdefault(m, 0)
-                    col_totals[c_val_list][m] += val
-                    grand_total.setdefault(m, 0)
-                    grand_total[m] += val
+                    if isinstance(val, float):
+                        val = round(val, 2)
+                    cell_vals[mkey] = val
+                    row_totals.setdefault(r_val_list, {}).setdefault(mkey, 0)
+                    row_totals[r_val_list][mkey] += val
+                    col_totals.setdefault(c_val_list, {}).setdefault(mkey, 0)
+                    col_totals[c_val_list][mkey] += val
+                    grand_total.setdefault(mkey, 0)
+                    grand_total[mkey] += val
             else:
-                cnt = group.get("__count", group.get("__domain", 1) if isinstance(group.get("__domain"), int) else group.get("id_count", 1))
+                cnt = group.get("__count", 1)
                 if not isinstance(cnt, (int, float)):
                     cnt = 1
                 cell_vals["__count"] = cnt
