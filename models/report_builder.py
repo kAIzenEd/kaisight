@@ -861,6 +861,7 @@ class KaisightReportBuilder(models.TransientModel):
         pivot_row_names=None,
         pivot_col_names=None,
         pivot_measure_names=None,
+        target="new",
     ):
         """Create a temporary saved report and open it in list or pivot view."""
         Report = self.env["kai.view.report"]
@@ -882,7 +883,7 @@ class KaisightReportBuilder(models.TransientModel):
                 "pivot_measure_field_ids": self._pivot_field_ids(model_name, pivot_measure_names or []),
             })
         report = Report.create(report_vals)
-        return report.action_open_report()
+        return report.action_open_report(target=target or "new")
 
     @api.model
     def save_report(

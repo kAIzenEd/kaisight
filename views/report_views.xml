@@ -7,6 +7,13 @@
             <list class="o_kai_saved_reports_list"
                   string="Saved Reports"
                   default_order="sequence, name">
+                <header>
+                    <button name="action_open_report_builder"
+                            type="object"
+                            string="Build New Report"
+                            class="btn-primary"
+                            icon="fa-magic"/>
+                </header>
                 <field name="sequence" widget="handle" optional="hide"/>
                 <!-- Click the name (row) to edit the saved report definition. -->
                 <field name="name" string="Report"/>
@@ -49,11 +56,19 @@
             <form string="Saved report">
                 <header>
                     <button name="action_open_report" type="object" string="Run report" class="btn-primary"/>
+                    <button name="action_open_report_builder" type="object" string="Open Report Builder" class="btn-secondary" icon="fa-wrench"/>
                     <button name="action_export_xlsx" type="object" string="Export Excel"/>
                     <button name="action_export_pdf" type="object" string="Export PDF"/>
                     <button name="action_schedule_report" type="object" string="Schedule"/>
                 </header>
                 <sheet>
+                    <div class="alert alert-info d-flex align-items-center justify-content-between mb-3" role="alert">
+                        <div>
+                            <i class="fa fa-lightbulb-o fa-lg me-2"/>
+                            <strong>Build &amp; preview reports interactively:</strong> Use the Report Builder to visually select columns, drag &amp; drop pivot table rows/columns/measures, and preview real-time calculations.
+                        </div>
+                        <button name="action_open_report_builder" type="object" string="Open Report Builder" class="btn btn-sm btn-primary ms-3"/>
+                    </div>
                     <div class="oe_title">
                         <h1>
                             <field name="name" placeholder="Report name"/>

@@ -296,7 +296,11 @@ class KaisightReport(models.Model):
             }
         )
 
-    def action_open_report(self):
+    def action_open_report_builder(self):
+        """Open the interactive Report Builder client action."""
+        return self.env.ref("kaisight.action_kai_view_report_builder_client").read()[0]
+
+    def action_open_report(self, target=None):
         """Open the filtered Odoo records for this report (not the definition)."""
         self.ensure_one()
         self._check_report_access("read")
@@ -325,12 +329,15 @@ class KaisightReport(models.Model):
         if self.report_type == "pivot":
             row_fields = [f.name for f in self.sudo().pivot_row_field_ids if f.name]
             col_fields = [f.name for f in self.sudo().pivot_col_field_ids if f.name]
-            model_fields = self.env[self.model_name]._fields if self.model_name in self.env else {}
-            measure_fields = [
-                f.name
-                for f in self.sudo().pivot_measure_field_ids
-                if f.name and f.name in model_fields and model_fields[f.name].type in ("integer", "float", "monetary")
-            ]
+            model = self.env.get(self.model_name)
+            fields_info = model.fields_get() if model is not None else {}
+            measure_fields = []
+            for f in self.sudo().pivot_measure_field_ids:
+                if not f.name or f.name == "id":
+                    continue
+                f_info = fields_info.get(f.name, {})
+                if f_info.get("type") in ("integer", "float", "monetary") and f_info.get("group_operator") is not False:
+                    measure_fields.append(f.name)
             if row_fields:
                 ctx["group_by"] = row_fields
             if col_fields:
@@ -361,7 +368,7 @@ class KaisightReport(models.Model):
             "views": views,
             "domain": self._parse_domain(),
             "context": ctx,
-            "target": "current",
+            "target": target or "current",
         }
         return prepare_act_window_action(action)
 

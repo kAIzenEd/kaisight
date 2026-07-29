@@ -640,7 +640,7 @@ export class KaisightReportBuilderAction extends Component {
         const res = [];
         for (const group of this.state.fieldGroups || []) {
             for (const f of group.fields || []) {
-                if (allowedTypes.includes(f.type)) {
+                if (allowedTypes.includes(f.type) && f.name !== "id") {
                     res.push(f);
                 }
             }
@@ -701,17 +701,20 @@ export class KaisightReportBuilderAction extends Component {
     get pivotMeasureNames() {
         return (this.state.pivotMeasures || [])
             .map((m) => (typeof m === "string" ? m : m.field))
-            .filter((f) => f && f !== "__count");
+            .filter((f) => f && f !== "__count" && f !== "id");
     }
 
     async addPivotMeasure(ev) {
-        const fname = ev.target.value;
+        let fname = ev.target.value;
         if (!fname) return;
+        if (fname === "id") {
+            fname = "__count";
+        }
         const existing = this.state.pivotMeasures.find(
             (m) => (typeof m === "string" ? m : m.field) === fname
         );
         if (!existing) {
-            const newItem = { field: fname, agg: "sum" };
+            const newItem = { field: fname, agg: fname === "__count" ? "count" : "sum" };
             this.state.pivotMeasures = [...this.state.pivotMeasures, newItem];
             await this.refreshPivotPreview();
         }
@@ -800,7 +803,7 @@ export class KaisightReportBuilderAction extends Component {
         }
     }
 
-    async openInOdoo() {
+    async openInOdoo(target = "new") {
         if (this.state.reportType === "list" && !this.selectedCount) {
             this.notification.add(_t("Select at least one column."), { type: "warning" });
             return;
@@ -820,6 +823,7 @@ export class KaisightReportBuilderAction extends Component {
                     pivot_row_names: this.state.pivotRows,
                     pivot_col_names: this.state.pivotCols,
                     pivot_measure_names: this.pivotMeasureNames,
+                    target: target,
                 }
             );
             await this.actionService.doAction(action);

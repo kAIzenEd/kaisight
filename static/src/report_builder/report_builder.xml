@@ -527,8 +527,11 @@
                         </t>
 
                         <footer class="kv-report-builder__footer">
-                            <button type="button" class="btn btn-secondary" t-on-click="openInOdoo" t-att-disabled="state.exporting">
-                                <i class="fa fa-external-link me-1"/>Preview in Odoo
+                            <button type="button" class="btn btn-outline-secondary" t-on-click="() => this.openInOdoo('new')" t-att-disabled="state.exporting" title="Preview live records in a dialog modal without leaving your Report Builder workspace">
+                                <i class="fa fa-window-maximize me-1"/>Preview in Dialog
+                            </button>
+                            <button type="button" class="btn btn-secondary" t-on-click="() => this.openInOdoo('current')" t-att-disabled="state.exporting" title="Open full Odoo view of records">
+                                <i class="fa fa-external-link me-1"/>Open Full View
                             </button>
                             <button type="button" class="btn btn-outline-primary" t-on-click="openSaveDialog" t-att-disabled="state.exporting">
                                 <i class="fa fa-save me-1"/>Save report
