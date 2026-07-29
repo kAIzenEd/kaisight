@@ -176,145 +176,362 @@
                             </div>
                         </div>
 
-                        <div class="kv-report-builder__toolbar">
+                        <!-- Mode Switcher Header -->
+                        <div class="kv-report-builder__mode-bar mb-3 p-3 bg-white border rounded d-flex align-items-center justify-content-between shadow-sm">
                             <div>
-                                <h2 class="kv-report-builder__section-title mb-1">3. Columns</h2>
-                                <span class="text-muted small">
-                                    <t t-esc="state.selectedCount"/> selected
-                                    <t t-if="state.recordCount !== null"> · <t t-esc="state.recordCount"/> records match</t>
-                                </span>
-                                <p class="text-muted small mb-0 mt-1" t-if="hasCuratedFields and !state.showAllFields and !state.fieldSearch">
-                                    Showing the common directory columns. Uncheck what you don’t need, or open all fields below.
-                                </p>
+                                <strong class="d-block text-dark">Report Format</strong>
+                                <span class="text-muted small">Choose between standard record columns or a dynamic multi-dimensional Pivot Table.</span>
                             </div>
-                            <div class="kv-report-builder__toolbar-actions">
-                                <input type="search" class="form-control form-control-sm kv-report-builder__search"
-                                    placeholder="Search fields…" t-model="state.fieldSearch"/>
-                                <div class="btn-group" role="group" aria-label="Column group display"
-                                    t-if="!state.fieldSearch">
-                                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                                        t-on-click="expandAllFieldGroups">
-                                        <i class="fa fa-expand me-1"/>Expand all
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                                        t-on-click="collapseAllFieldGroups">
-                                        <i class="fa fa-compress me-1"/>Collapse all
-                                    </button>
-                                </div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm"
-                                    t-if="hasCuratedFields"
-                                    t-on-click="selectRecommended">
-                                    Common set
+                            <div class="btn-group" role="group" aria-label="Report Format Toggle">
+                                <button type="button" class="btn btn-sm"
+                                    t-att-class="state.reportType === 'list' ? 'btn-primary' : 'btn-outline-primary'"
+                                    t-on-click="() => this.setReportType('list')">
+                                    <i class="fa fa-list me-1"/>List Columns
                                 </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="selectAllVisible">Select visible</button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="clearSelection">Clear</button>
+                                <button type="button" class="btn btn-sm"
+                                    t-att-class="state.reportType === 'pivot' ? 'btn-primary' : 'btn-outline-primary'"
+                                    t-on-click="() => this.setReportType('pivot')">
+                                    <i class="fa fa-th-large me-1"/>Pivot Table
+                                </button>
                             </div>
                         </div>
 
-                        <div class="kv-field-groups">
-                            <t t-foreach="filteredGroups" t-as="group" t-key="group.id">
-                                <section class="kv-field-group"
-                                    t-att-class="{'kv-field-group--collapsed': isFieldGroupCollapsed(group.id)}">
-                                    <button type="button"
-                                        class="kv-field-group__header"
-                                        t-att-aria-expanded="!isFieldGroupCollapsed(group.id)"
-                                        t-on-click="() => this.toggleFieldGroup(group.id)">
-                                        <span class="kv-field-group__title" t-esc="group.label"/>
-                                        <span class="kv-field-group__summary">
-                                            <t t-esc="group.fields.length"/>
-                                            <t t-if="group.fields.length === 1"> field</t>
-                                            <t t-else=""> fields</t>
-                                            <i class="fa ms-2"
-                                                t-att-class="isFieldGroupCollapsed(group.id) ? 'fa-chevron-right' : 'fa-chevron-down'"/>
-                                        </span>
-                                    </button>
-                                    <div class="kv-field-grid" t-if="!isFieldGroupCollapsed(group.id)">
-                                        <t t-foreach="group.fields" t-as="field" t-key="field.name">
-                                            <label class="kv-field-check">
-                                                <input type="checkbox"
-                                                    t-att-checked="isFieldSelected(field.name)"
-                                                    t-on-change="() => this.toggleField(field.name)"/>
-                                                <span class="kv-field-check__label" t-esc="field.label"/>
-                                                <span class="kv-field-check__meta text-muted" t-esc="field.name"/>
-                                            </label>
-                                        </t>
+                        <!-- Pivot Table Mode View -->
+                        <t t-if="state.reportType === 'pivot'">
+                            <div class="kv-pivot-builder mb-4">
+                                <div class="row g-3 mb-3">
+                                    <!-- Row Fields Picker -->
+                                    <div class="col-md-4">
+                                        <div class="card h-100 kv-pivot-card shadow-sm border-0 bg-light">
+                                            <div class="card-header bg-white border-bottom-0 pt-3">
+                                                <strong class="text-primary"><i class="fa fa-bars me-1"/>Rows (Group By)</strong>
+                                                <span class="text-muted d-block small">Fields grouped along table rows</span>
+                                            </div>
+                                            <div class="card-body pt-2">
+                                                <div class="d-flex flex-wrap gap-1 mb-2">
+                                                    <t t-foreach="state.pivotRows" t-as="rf" t-key="rf">
+                                                        <span class="badge bg-primary text-white d-inline-flex align-items-center gap-1 p-2">
+                                                            <t t-esc="allFieldsMap[rf]?.label || rf"/>
+                                                            <i class="fa fa-times cursor-pointer ms-1" t-on-click="() => this.removePivotRow(rf)"/>
+                                                        </span>
+                                                    </t>
+                                                    <span t-if="!state.pivotRows.length" class="text-muted small">No row fields selected.</span>
+                                                </div>
+                                                <select class="form-select form-select-sm" t-on-change="addPivotRow">
+                                                    <option value="">+ Add Row Field…</option>
+                                                    <t t-foreach="groupableFields" t-as="gf" t-key="gf.name">
+                                                        <option t-att-value="gf.name" t-att-disabled="state.pivotRows.includes(gf.name)" t-esc="gf.label"/>
+                                                    </t>
+                                                </select>
+                                            </div>
+                                        </div>
                                     </div>
-                                </section>
-                            </t>
-                            <t t-if="!filteredGroups.length">
-                                <p class="text-muted">No fields match your search.</p>
-                            </t>
-                        </div>
 
-                        <div class="kv-report-builder__more-fields" t-if="hasCuratedFields and !state.fieldSearch">
-                            <button type="button" class="btn btn-link btn-sm px-0"
-                                t-on-click="toggleShowAllFields">
-                                <t t-if="state.showAllFields">
-                                    <i class="fa fa-compress me-1"/>Show common columns only
-                                </t>
-                                <t t-else="">
-                                    <i class="fa fa-plus-square-o me-1"/>View all fields
-                                </t>
-                            </button>
-                        </div>
+                                    <!-- Column Fields Picker -->
+                                    <div class="col-md-4">
+                                        <div class="card h-100 kv-pivot-card shadow-sm border-0 bg-light">
+                                            <div class="card-header bg-white border-bottom-0 pt-3">
+                                                <strong class="text-info"><i class="fa fa-columns me-1"/>Columns (Pivot By)</strong>
+                                                <span class="text-muted d-block small">Fields grouped along table columns</span>
+                                            </div>
+                                            <div class="card-body pt-2">
+                                                <div class="d-flex flex-wrap gap-1 mb-2">
+                                                    <t t-foreach="state.pivotCols" t-as="cf" t-key="cf">
+                                                        <span class="badge bg-info text-dark d-inline-flex align-items-center gap-1 p-2">
+                                                            <t t-esc="allFieldsMap[cf]?.label || cf"/>
+                                                            <i class="fa fa-times cursor-pointer ms-1" t-on-click="() => this.removePivotCol(cf)"/>
+                                                        </span>
+                                                    </t>
+                                                    <span t-if="!state.pivotCols.length" class="text-muted small">No column fields selected.</span>
+                                                </div>
+                                                <select class="form-select form-select-sm" t-on-change="addPivotCol">
+                                                    <option value="">+ Add Column Field…</option>
+                                                    <t t-foreach="groupableFields" t-as="gf" t-key="gf.name">
+                                                        <option t-att-value="gf.name" t-att-disabled="state.pivotCols.includes(gf.name)" t-esc="gf.label"/>
+                                                    </t>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                        <div class="kv-report-builder__selected" t-if="selectedCount">
-                            <div class="kv-report-builder__selected-header">
-                                <div>
-                                    <h2 class="kv-report-builder__section-title mb-1">4. Column order</h2>
-                                    <span class="text-muted small">
-                                        Drag, or use the arrows, to set the order in previews, saved reports, and exports.
-                                    </span>
+                                    <!-- Measures Picker -->
+                                    <div class="col-md-4">
+                                        <div class="card h-100 kv-pivot-card shadow-sm border-0 bg-light">
+                                            <div class="card-header bg-white border-bottom-0 pt-3">
+                                                <strong class="text-success"><i class="fa fa-calculator me-1"/>Values / Measures</strong>
+                                                <span class="text-muted d-block small">Metrics &amp; values to aggregate</span>
+                                            </div>
+                                            <div class="card-body pt-2">
+                                                <div class="d-flex flex-column gap-2 mb-2">
+                                                    <t t-foreach="state.pivotMeasures" t-as="mItem" t-key="typeof mItem === 'string' ? mItem : mItem.field">
+                                                        <t t-set="mFName" t-value="typeof mItem === 'string' ? mItem : mItem.field"/>
+                                                        <t t-set="mFAgg" t-value="typeof mItem === 'string' ? 'sum' : (mItem.agg || 'sum')"/>
+                                                        <div class="d-flex align-items-center justify-content-between p-2 bg-white border rounded shadow-sm">
+                                                            <div class="min-w-0">
+                                                                <strong class="d-block text-truncate small" t-esc="mFName === '__count' ? 'Record Count' : (allFieldsMap[mFName]?.label || mFName)"/>
+                                                            </div>
+                                                            <div class="d-flex align-items-center gap-1 ms-2">
+                                                                <select class="form-select form-select-sm py-0 px-1"
+                                                                    style="font-size: 0.75rem; width: 75px;"
+                                                                    t-att-value="mFAgg"
+                                                                    t-on-change="(ev) => this.changePivotMeasureAgg(mFName, ev.target.value)"
+                                                                    t-att-disabled="mFName === '__count'">
+                                                                    <option value="sum">Sum</option>
+                                                                    <option value="avg">Avg</option>
+                                                                    <option value="count">Count</option>
+                                                                    <option value="min">Min</option>
+                                                                    <option value="max">Max</option>
+                                                                </select>
+                                                                <button type="button" class="btn btn-link btn-sm text-danger p-0 ms-1" t-on-click="() => this.removePivotMeasure(mFName)">
+                                                                    <i class="fa fa-times"/>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </t>
+                                                    <span t-if="!state.pivotMeasures.length" class="badge bg-secondary p-2 align-self-start">Record Count (Default)</span>
+                                                </div>
+                                                <select class="form-select form-select-sm" t-on-change="addPivotMeasure">
+                                                    <option value="">+ Add Measure / Metric…</option>
+                                                    <option value="__count">Record Count</option>
+                                                    <t t-foreach="measureableFields" t-as="mf" t-key="mf.name">
+                                                        <option t-att-value="mf.name" t-att-disabled="pivotMeasureNames.includes(mf.name)" t-esc="mf.label"/>
+                                                    </t>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="button" class="btn btn-outline-secondary btn-sm"
-                                    t-if="state.canManageSources"
-                                    t-att-disabled="state.savingCommonSet"
-                                    title="Replace this data source's default common columns with the current selection"
-                                    t-on-click="saveCommonSet">
-                                    <i class="fa fa-bookmark-o me-1"/>
-                                    <t t-if="state.savingCommonSet">Saving…</t>
-                                    <t t-else="">Save selection as common set</t>
+
+                                <!-- Live Pivot Table Matrix Preview -->
+                                <div class="kv-pivot-matrix-container border rounded p-3 bg-white shadow-sm">
+                                    <h3 class="h6 mb-3 d-flex justify-content-between align-items-center">
+                                        <span><i class="fa fa-table me-2 text-primary"/>Live Pivot Table Preview</span>
+                                        <t t-if="state.loadingPivotPreview">
+                                            <small class="text-muted"><i class="fa fa-spinner fa-spin me-1"/>Calculating preview…</small>
+                                        </t>
+                                    </h3>
+                                    
+                                    <t t-if="state.pivotPreviewData">
+                                        <div class="table-responsive" style="max-height: 450px;">
+                                            <table class="table table-bordered table-sm align-middle kv-pivot-table mb-0">
+                                                <thead class="table-light sticky-top">
+                                                    <tr>
+                                                        <th t-foreach="state.pivotPreviewData.row_headers" t-as="rh" t-key="rh" t-esc="rh"/>
+                                                        <t t-foreach="state.pivotPreviewData.col_keys" t-as="ck" t-key="ck_index">
+                                                            <th class="text-center" t-esc="ck.join(' / ')"/>
+                                                        </t>
+                                                        <th class="text-end bg-secondary text-white">Total</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <t t-foreach="state.pivotPreviewData.row_keys" t-as="rk" t-key="rk_index">
+                                                        <tr>
+                                                            <td t-foreach="rk" t-as="r_item" t-key="r_item_index">
+                                                                <strong t-esc="r_item"/>
+                                                            </td>
+                                                            <t t-foreach="state.pivotPreviewData.col_keys" t-as="ck" t-key="ck_index">
+                                                                <td class="text-end">
+                                                                    <t t-set="cell_data" t-value="state.pivotPreviewData.matrix[rk + '___' + ck]"/>
+                                                                    <t t-if="cell_data">
+                                                                        <t t-foreach="Object.keys(cell_data)" t-as="m_key" t-key="m_key">
+                                                                            <div><t t-esc="cell_data[m_key]"/></div>
+                                                                        </t>
+                                                                    </t>
+                                                                    <t t-else="">
+                                                                        <span class="text-muted small">0</span>
+                                                                    </t>
+                                                                </td>
+                                                            </t>
+                                                            <td class="text-end bg-light fw-bold">
+                                                                <t t-set="rt_data" t-value="state.pivotPreviewData.row_totals[rk]"/>
+                                                                <t t-if="rt_data">
+                                                                    <t t-foreach="Object.keys(rt_data)" t-as="m_key" t-key="m_key">
+                                                                        <div><t t-esc="rt_data[m_key]"/></div>
+                                                                    </t>
+                                                                </t>
+                                                            </td>
+                                                        </tr>
+                                                    </t>
+                                                </tbody>
+                                                <tfoot class="table-secondary fw-bold">
+                                                    <tr>
+                                                        <td t-att-colspan="state.pivotPreviewData.row_headers.length">Grand Total</td>
+                                                        <t t-foreach="state.pivotPreviewData.col_keys" t-as="ck" t-key="ck_index">
+                                                            <td class="text-end">
+                                                                <t t-set="ct_data" t-value="state.pivotPreviewData.col_totals[ck]"/>
+                                                                <t t-if="ct_data">
+                                                                    <t t-foreach="Object.keys(ct_data)" t-as="m_key" t-key="m_key">
+                                                                        <div><t t-esc="ct_data[m_key]"/></div>
+                                                                    </t>
+                                                                </t>
+                                                            </td>
+                                                        </t>
+                                                        <td class="text-end bg-dark text-white">
+                                                            <t t-if="state.pivotPreviewData.grand_total">
+                                                                <t t-foreach="Object.keys(state.pivotPreviewData.grand_total)" t-as="m_key" t-key="m_key">
+                                                                    <div><t t-esc="state.pivotPreviewData.grand_total[m_key]"/></div>
+                                                                </t>
+                                                            </t>
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="text-muted py-4 text-center">
+                                            <i class="fa fa-info-circle me-1"/>Select row or column fields above to generate the dynamic pivot table preview.
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- List Columns Mode View -->
+                        <t t-else="">
+                            <div class="kv-report-builder__toolbar">
+                                <div>
+                                    <h2 class="kv-report-builder__section-title mb-1">3. Columns</h2>
+                                    <span class="text-muted small">
+                                        <t t-esc="state.selectedCount"/> selected
+                                        <t t-if="state.recordCount !== null"> · <t t-esc="state.recordCount"/> records match</t>
+                                    </span>
+                                    <p class="text-muted small mb-0 mt-1" t-if="hasCuratedFields and !state.showAllFields and !state.fieldSearch">
+                                        Showing the common directory columns. Uncheck what you don’t need, or open all fields below.
+                                    </p>
+                                </div>
+                                <div class="kv-report-builder__toolbar-actions">
+                                    <input type="search" class="form-control form-control-sm kv-report-builder__search"
+                                        placeholder="Search fields…" t-model="state.fieldSearch"/>
+                                    <div class="btn-group" role="group" aria-label="Column group display"
+                                        t-if="!state.fieldSearch">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            t-on-click="expandAllFieldGroups">
+                                            <i class="fa fa-expand me-1"/>Expand all
+                                        </button>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            t-on-click="collapseAllFieldGroups">
+                                            <i class="fa fa-compress me-1"/>Collapse all
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        t-if="hasCuratedFields"
+                                        t-on-click="selectRecommended">
+                                        Common set
+                                    </button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="selectAllVisible">Select visible</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="clearSelection">Clear</button>
+                                </div>
+                            </div>
+
+                            <div class="kv-field-groups">
+                                <t t-foreach="filteredGroups" t-as="group" t-key="group.id">
+                                    <section class="kv-field-group"
+                                        t-att-class="{'kv-field-group--collapsed': isFieldGroupCollapsed(group.id)}">
+                                        <button type="button"
+                                            class="kv-field-group__header"
+                                            t-att-aria-expanded="!isFieldGroupCollapsed(group.id)"
+                                            t-on-click="() => this.toggleFieldGroup(group.id)">
+                                            <span class="kv-field-group__title" t-esc="group.label"/>
+                                            <span class="kv-field-group__summary">
+                                                <t t-esc="group.fields.length"/>
+                                                <t t-if="group.fields.length === 1"> field</t>
+                                                <t t-else=""> fields</t>
+                                                <i class="fa ms-2"
+                                                    t-att-class="isFieldGroupCollapsed(group.id) ? 'fa-chevron-right' : 'fa-chevron-down'"/>
+                                            </span>
+                                        </button>
+                                        <div class="kv-field-grid" t-if="!isFieldGroupCollapsed(group.id)">
+                                            <t t-foreach="group.fields" t-as="field" t-key="field.name">
+                                                <label class="kv-field-check">
+                                                    <input type="checkbox"
+                                                        t-att-checked="isFieldSelected(field.name)"
+                                                        t-on-change="() => this.toggleField(field.name)"/>
+                                                    <span class="kv-field-check__label" t-esc="field.label"/>
+                                                    <span class="kv-field-check__meta text-muted" t-esc="field.name"/>
+                                                </label>
+                                            </t>
+                                        </div>
+                                    </section>
+                                </t>
+                                <t t-if="!filteredGroups.length">
+                                    <p class="text-muted">No fields match your search.</p>
+                                </t>
+                            </div>
+
+                            <div class="kv-report-builder__more-fields" t-if="hasCuratedFields and !state.fieldSearch">
+                                <button type="button" class="btn btn-link btn-sm px-0"
+                                    t-on-click="toggleShowAllFields">
+                                    <t t-if="state.showAllFields">
+                                        <i class="fa fa-compress me-1"/>Show common columns only
+                                    </t>
+                                    <t t-else="">
+                                        <i class="fa fa-plus-square-o me-1"/>View all fields
+                                    </t>
                                 </button>
                             </div>
-                            <ul class="kv-selected-columns">
-                                <t t-foreach="selectedColumns" t-as="col" t-key="col.name">
-                                    <li class="kv-selected-column"
-                                        t-att-class="{'kv-selected-column--dragging': state.dragFieldName === col.name}"
-                                        draggable="true"
-                                        t-on-dragstart="(ev) => this.onColumnDragStart(col.name, ev)"
-                                        t-on-dragover="onColumnDragOver"
-                                        t-on-drop="(ev) => this.onColumnDrop(col.name, ev)"
-                                        t-on-dragend="onColumnDragEnd">
-                                        <i class="fa fa-bars kv-selected-column__grip" title="Drag to reorder"/>
-                                        <span class="kv-selected-column__index" t-esc="col_index + 1"/>
-                                        <span class="kv-selected-column__label" t-esc="col.label"/>
-                                        <span class="kv-selected-column__actions">
-                                            <button type="button" class="btn btn-link btn-sm p-0"
-                                                title="Move up"
-                                                t-att-disabled="col_first"
-                                                t-on-click="() => this.moveSelected(col.name, -1)">
-                                                <i class="fa fa-arrow-up"/>
-                                            </button>
-                                            <button type="button" class="btn btn-link btn-sm p-0"
-                                                title="Move down"
-                                                t-att-disabled="col_last"
-                                                t-on-click="() => this.moveSelected(col.name, 1)">
-                                                <i class="fa fa-arrow-down"/>
-                                            </button>
-                                            <button type="button" class="btn btn-link btn-sm p-0 text-danger"
-                                                title="Remove column"
-                                                t-on-click="() => this.removeSelected(col.name)">
-                                                <i class="fa fa-times"/>
-                                            </button>
+
+                            <div class="kv-report-builder__selected" t-if="selectedCount">
+                                <div class="kv-report-builder__selected-header">
+                                    <div>
+                                        <h2 class="kv-report-builder__section-title mb-1">4. Column order</h2>
+                                        <span class="text-muted small">
+                                            Drag, or use the arrows, to set the order in previews, saved reports, and exports.
                                         </span>
-                                    </li>
-                                </t>
-                            </ul>
-                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        t-if="state.canManageSources"
+                                        t-att-disabled="state.savingCommonSet"
+                                        title="Replace this data source's default common columns with the current selection"
+                                        t-on-click="saveCommonSet">
+                                        <i class="fa fa-bookmark-o me-1"/>
+                                        <t t-if="state.savingCommonSet">Saving…</t>
+                                        <t t-else="">Save selection as common set</t>
+                                    </button>
+                                </div>
+                                <ul class="kv-selected-columns">
+                                    <t t-foreach="selectedColumns" t-as="col" t-key="col.name">
+                                        <li class="kv-selected-column"
+                                            t-att-class="{'kv-selected-column--dragging': state.dragFieldName === col.name}"
+                                            draggable="true"
+                                            t-on-dragstart="(ev) => this.onColumnDragStart(col.name, ev)"
+                                            t-on-dragover="onColumnDragOver"
+                                            t-on-drop="(ev) => this.onColumnDrop(col.name, ev)"
+                                            t-on-dragend="onColumnDragEnd">
+                                            <i class="fa fa-bars kv-selected-column__grip" title="Drag to reorder"/>
+                                            <span class="kv-selected-column__index" t-esc="col_index + 1"/>
+                                            <span class="kv-selected-column__label" t-esc="col.label"/>
+                                            <span class="kv-selected-column__actions">
+                                                <button type="button" class="btn btn-link btn-sm p-0"
+                                                    title="Move up"
+                                                    t-att-disabled="col_first"
+                                                    t-on-click="() => this.moveSelected(col.name, -1)">
+                                                    <i class="fa fa-arrow-up"/>
+                                                </button>
+                                                <button type="button" class="btn btn-link btn-sm p-0"
+                                                    title="Move down"
+                                                    t-att-disabled="col_last"
+                                                    t-on-click="() => this.moveSelected(col.name, 1)">
+                                                    <i class="fa fa-arrow-down"/>
+                                                </button>
+                                                <button type="button" class="btn btn-link btn-sm p-0 text-danger"
+                                                    title="Remove column"
+                                                    t-on-click="() => this.removeSelected(col.name)">
+                                                    <i class="fa fa-times"/>
+                                                </button>
+                                            </span>
+                                        </li>
+                                    </t>
+                                </ul>
+                            </div>
+                        </t>
 
                         <footer class="kv-report-builder__footer">
-                            <button type="button" class="btn btn-secondary" t-on-click="openInOdoo" t-att-disabled="state.exporting">
-                                <i class="fa fa-external-link me-1"/>Preview in Odoo
+                            <button type="button" class="btn btn-outline-secondary" t-on-click="() => this.openInOdoo('new')" t-att-disabled="state.exporting" title="Preview live records in a dialog modal without leaving your Report Builder workspace">
+                                <i class="fa fa-window-maximize me-1"/>Preview in Dialog
+                            </button>
+                            <button type="button" class="btn btn-secondary" t-on-click="() => this.openInOdoo('current')" t-att-disabled="state.exporting" title="Open full Odoo view of records">
+                                <i class="fa fa-external-link me-1"/>Open Full View
                             </button>
                             <button type="button" class="btn btn-outline-primary" t-on-click="openSaveDialog" t-att-disabled="state.exporting">
                                 <i class="fa fa-save me-1"/>Save report

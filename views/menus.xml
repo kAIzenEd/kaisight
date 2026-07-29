@@ -17,28 +17,28 @@
         parent="menu_kai_view_root"
         sequence="5"/>
 
+    <menuitem id="menu_kai_view_report_builder"
+        name="Report Builder"
+        parent="menu_kai_view_reports_root"
+        action="action_kai_view_report_builder_client"
+        sequence="1"/>
+
     <menuitem id="menu_kai_view_reports"
         name="Saved Reports"
         parent="menu_kai_view_reports_root"
         action="action_kai_view_reports"
-        sequence="1"/>
+        sequence="2"/>
 
     <menuitem id="menu_kai_view_report_schedules"
         name="Scheduled Reports"
         parent="menu_kai_view_reports_root"
         action="action_kai_view_report_schedules"
-        sequence="2"/>
+        sequence="3"/>
 
     <menuitem id="menu_kai_view_report_runs"
         name="Generated Reports"
         parent="menu_kai_view_reports_root"
         action="action_kai_view_report_runs"
-        sequence="3"/>
-
-    <menuitem id="menu_kai_view_report_builder"
-        name="Report Builder"
-        parent="menu_kai_view_reports_root"
-        action="action_kai_view_report_builder_client"
         sequence="4"/>
 
     <menuitem id="menu_kai_view_configuration"

@@ -685,51 +685,242 @@ class KaisightReportBuilder(models.TransientModel):
         return self._download_action(filename, content, mimetype)
 
     @api.model
-    def action_open_in_odoo(
-        self, model_name, field_names, domain_str="[]", name=None, quick_filters=None
+    def _pivot_field_ids(self, model_name, field_names):
+        if not field_names:
+            return [(6, 0, [])]
+        field_records = self.env["ir.model.fields"].sudo().search(
+            [("model", "=", model_name), ("name", "in", field_names)]
+        )
+        field_by_name = {field.name: field.id for field in field_records}
+        ids = [field_by_name[fname] for fname in field_names if fname in field_by_name]
+        return [(6, 0, ids)]
+
+    @api.model
+    def get_pivot_preview_data(
+        self,
+        model_name,
+        row_fields=None,
+        col_fields=None,
+        measure_fields=None,
+        domain_str="[]",
+        quick_filters=None,
     ):
-        """Create a temporary saved report and open it in list view."""
+        """Build matrix aggregated data for client-side live pivot preview with dynamic aggregations."""
+        if not model_name or model_name not in self.env:
+            raise UserError(_("Model “%s” is not available.") % model_name)
+        self.env[model_name].check_access("read")
+
+        domain = self.build_full_domain(model_name, domain_str, quick_filters)
+        model = self.env[model_name]
+        fields_info = model.fields_get()
+
+        row_fields = [f for f in (row_fields or []) if f in fields_info]
+        col_fields = [f for f in (col_fields or []) if f in fields_info]
+
+        parsed_measures = []
+        for item in (measure_fields or []):
+            if isinstance(item, dict):
+                fname = item.get("field")
+                agg = item.get("agg", "sum")
+            else:
+                fname = str(item)
+                agg = "sum"
+
+            if fname == "__count":
+                parsed_measures.append({"key": "__count", "field": "__count", "agg": "count", "label": _("Record Count")})
+            elif fname in fields_info:
+                flabel = fields_info[fname]["string"]
+                ftype = fields_info[fname]["type"]
+                if ftype not in ("integer", "float", "monetary"):
+                    agg = "count"
+                agg_title = {"sum": _("Sum"), "avg": _("Average"), "min": _("Min"), "max": _("Max"), "count": _("Count")}.get(agg, _("Sum"))
+                key = f"{fname}_{agg}"
+                parsed_measures.append({"key": key, "field": fname, "agg": agg, "label": f"{flabel} ({agg_title})"})
+
+        group_by = list(row_fields) + list(col_fields)
+        rg_measures = []
+        for m in parsed_measures:
+            if m["field"] == "__count":
+                continue
+            if m["agg"] == "sum":
+                rg_measures.append(m["field"])
+            else:
+                rg_measures.append(f"{m['field']}:{m['agg']}")
+
+        if group_by:
+            try:
+                rg_res = model.read_group(
+                    domain,
+                    fields=group_by + (rg_measures if rg_measures else []),
+                    groupby=group_by,
+                    lazy=False,
+                )
+            except Exception:
+                rg_res = []
+        else:
+            count = model.search_count(domain)
+            rg_res = [{"__count": count}]
+
+        def _format_val(val, fname):
+            if not fname or fname not in fields_info:
+                return _("Total")
+            ftype = fields_info[fname]["type"]
+            if isinstance(val, tuple):
+                return val[1]
+            if val is False or val is None:
+                return _("(Empty)")
+            if ftype == "selection":
+                sel_options = dict(fields_info[fname].get("selection", []))
+                return sel_options.get(val, str(val))
+            return str(val)
+
+        row_keys = []
+        col_keys = []
+        matrix = {}
+        row_totals = {}
+        col_totals = {}
+        grand_total = {}
+
+        measure_labels = {}
+        if parsed_measures:
+            for m in parsed_measures:
+                measure_labels[m["key"]] = m["label"]
+        else:
+            measure_labels["__count"] = _("Record Count")
+
+        for group in rg_res:
+            r_val_list = tuple(_format_val(group.get(rf), rf) for rf in row_fields) if row_fields else (_("All Records"),)
+            c_val_list = tuple(_format_val(group.get(cf), cf) for cf in col_fields) if col_fields else (_("Total"),)
+
+            if r_val_list not in row_keys:
+                row_keys.append(r_val_list)
+            if c_val_list not in col_keys:
+                col_keys.append(c_val_list)
+
+            cell_vals = {}
+            if parsed_measures:
+                for m in parsed_measures:
+                    mkey = m["key"]
+                    mf = m["field"]
+                    magg = m["agg"]
+                    if mf == "__count":
+                        val = group.get("__count", 1)
+                    else:
+                        val = group.get(mf)
+                        if val is None or val is False:
+                            val = group.get(f"{mf}_{magg}") or group.get(f"{mf}_count") or group.get("__count") or 0
+                    if not isinstance(val, (int, float)):
+                        val = 0
+                    if isinstance(val, float):
+                        val = round(val, 2)
+                    cell_vals[mkey] = val
+                    row_totals.setdefault(r_val_list, {}).setdefault(mkey, 0)
+                    row_totals[r_val_list][mkey] += val
+                    col_totals.setdefault(c_val_list, {}).setdefault(mkey, 0)
+                    col_totals[c_val_list][mkey] += val
+                    grand_total.setdefault(mkey, 0)
+                    grand_total[mkey] += val
+            else:
+                cnt = group.get("__count", 1)
+                if not isinstance(cnt, (int, float)):
+                    cnt = 1
+                cell_vals["__count"] = cnt
+                row_totals.setdefault(r_val_list, {}).setdefault("__count", 0)
+                row_totals[r_val_list]["__count"] += cnt
+                col_totals.setdefault(c_val_list, {}).setdefault("__count", 0)
+                col_totals[c_val_list]["__count"] += cnt
+                grand_total.setdefault("__count", 0)
+                grand_total["__count"] += cnt
+
+            matrix[(r_val_list, c_val_list)] = cell_vals
+
+        row_headers = [fields_info[rf]["string"] for rf in row_fields] if row_fields else [_("Row")]
+        col_headers = [fields_info[cf]["string"] for cf in col_fields] if col_fields else [_("Column")]
+
+        return {
+            "row_headers": row_headers,
+            "col_headers": col_headers,
+            "row_keys": [list(rk) for rk in row_keys],
+            "col_keys": [list(ck) for ck in col_keys],
+            "measure_labels": measure_labels,
+            "matrix": {f"{list(rk)}___{list(ck)}": vals for (rk, ck), vals in matrix.items()},
+            "row_totals": {f"{list(rk)}": vals for rk, vals in row_totals.items()},
+            "col_totals": {f"{list(ck)}": vals for ck, vals in col_totals.items()},
+            "grand_total": grand_total,
+        }
+
+    @api.model
+    def action_open_in_odoo(
+        self,
+        model_name,
+        field_names=None,
+        domain_str="[]",
+        name=None,
+        quick_filters=None,
+        report_type="list",
+        pivot_row_names=None,
+        pivot_col_names=None,
+        pivot_measure_names=None,
+        target="new",
+    ):
+        """Create a temporary saved report and open it in list or pivot view."""
         Report = self.env["kai.view.report"]
         ir_model = self._get_ir_model_record(model_name)
-        line_vals = self._report_field_line_vals(model_name, field_names)
+        line_vals = self._report_field_line_vals(model_name, field_names or [])
         full_domain = self.build_full_domain(model_name, domain_str, quick_filters)
-        report = Report.create(
-            {
-                "name": name or _("%s export") % ir_model.name,
-                "model_id": ir_model.id,
-                "domain": str(full_domain),
-                "field_ids": line_vals,
-                "user_id": self.env.uid,
-            }
-        )
-        return report.action_open_report()
+        report_vals = {
+            "name": name or _("%s report") % ir_model.name,
+            "model_id": ir_model.id,
+            "domain": str(full_domain),
+            "field_ids": line_vals,
+            "report_type": report_type or "list",
+            "user_id": self.env.uid,
+        }
+        if report_type == "pivot":
+            report_vals.update({
+                "pivot_row_field_ids": self._pivot_field_ids(model_name, pivot_row_names or []),
+                "pivot_col_field_ids": self._pivot_field_ids(model_name, pivot_col_names or []),
+                "pivot_measure_field_ids": self._pivot_field_ids(model_name, pivot_measure_names or []),
+            })
+        report = Report.create(report_vals)
+        return report.action_open_report(target=target or "new")
 
     @api.model
     def save_report(
         self,
         name,
         model_name,
-        field_names,
+        field_names=None,
         domain_str="[]",
         is_shared=False,
         quick_filters=None,
+        report_type="list",
+        pivot_row_names=None,
+        pivot_col_names=None,
+        pivot_measure_names=None,
     ):
         if not name:
             raise UserError(_("Enter a name for this report."))
         Report = self.env["kai.view.report"]
         ir_model = self._get_ir_model_record(model_name)
-        line_vals = self._report_field_line_vals(model_name, field_names)
+        line_vals = self._report_field_line_vals(model_name, field_names or [])
         full_domain = self.build_full_domain(model_name, domain_str, quick_filters)
-        report = Report.create(
-            {
-                "name": name,
-                "model_id": ir_model.id,
-                "domain": str(full_domain),
-                "field_ids": line_vals,
-                "is_shared": is_shared,
-                "user_id": self.env.uid,
-            }
-        )
+        report_vals = {
+            "name": name,
+            "model_id": ir_model.id,
+            "domain": str(full_domain),
+            "field_ids": line_vals,
+            "report_type": report_type or "list",
+            "is_shared": is_shared,
+            "user_id": self.env.uid,
+        }
+        if report_type == "pivot":
+            report_vals.update({
+                "pivot_row_field_ids": self._pivot_field_ids(model_name, pivot_row_names or []),
+                "pivot_col_field_ids": self._pivot_field_ids(model_name, pivot_col_names or []),
+                "pivot_measure_field_ids": self._pivot_field_ids(model_name, pivot_measure_names or []),
+            })
+        report = Report.create(report_vals)
         return {"id": report.id, "name": report.name}
 
     def action_set_domain(self):

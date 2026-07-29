@@ -395,6 +395,46 @@
         text-align: center;
     }
 
+    .cursor-pointer {
+        cursor: pointer;
+    }
+
+    .kv-pivot-builder {
+        padding: 1rem 1.25rem;
+
+        .kv-pivot-card {
+            border-radius: 0.5rem;
+            transition: box-shadow 0.2s ease;
+
+            &:hover {
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+            }
+
+            .badge {
+                font-size: 0.8rem;
+                font-weight: 500;
+                border-radius: 0.35rem;
+            }
+        }
+
+        .kv-pivot-matrix-container {
+            border-radius: 0.5rem;
+
+            .kv-pivot-table {
+                font-size: 0.85rem;
+
+                th {
+                    white-space: nowrap;
+                    vertical-align: middle;
+                }
+
+                td {
+                    vertical-align: middle;
+                }
+            }
+        }
+    }
+
     @media (max-width: 992px) {
         .kv-report-builder__layout {
             grid-template-columns: 1fr;
