@@ -719,13 +719,18 @@ class KaisightReportBuilder(models.TransientModel):
         measure_fields = [f for f in (measure_fields or []) if f in fields_info]
 
         group_by = list(row_fields) + list(col_fields)
-        measures = list(measure_fields) if measure_fields else []
+        rg_measures = []
+        for m in measure_fields:
+            if fields_info[m]["type"] in ("integer", "float", "monetary"):
+                rg_measures.append(m)
+            else:
+                rg_measures.append(f"{m}:count")
 
         if group_by:
             try:
                 rg_res = model.read_group(
                     domain,
-                    fields=group_by + measures,
+                    fields=group_by + (rg_measures if rg_measures else []),
                     groupby=group_by,
                     lazy=False,
                 )
@@ -773,7 +778,11 @@ class KaisightReportBuilder(models.TransientModel):
             cell_vals = {}
             if measure_fields:
                 for m in measure_fields:
-                    val = group.get(m) or 0
+                    val = group.get(m)
+                    if val is None or val is False:
+                        val = group.get(f"{m}_count") or group.get("__count") or 0
+                    if not isinstance(val, (int, float)):
+                        val = 0
                     cell_vals[m] = val
                     row_totals.setdefault(r_val_list, {}).setdefault(m, 0)
                     row_totals[r_val_list][m] += val

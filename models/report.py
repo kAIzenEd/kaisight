@@ -325,12 +325,19 @@ class KaisightReport(models.Model):
         if self.report_type == "pivot":
             row_fields = [f.name for f in self.sudo().pivot_row_field_ids if f.name]
             col_fields = [f.name for f in self.sudo().pivot_col_field_ids if f.name]
-            measure_fields = [f.name for f in self.sudo().pivot_measure_field_ids if f.name]
+            measure_specs = []
+            for f in self.sudo().pivot_measure_field_ids:
+                if not f.name:
+                    continue
+                if f.ttype in ("integer", "float", "monetary"):
+                    measure_specs.append(f.name)
+                else:
+                    measure_specs.append(f"{f.name}:count")
             if row_fields:
                 ctx["group_by"] = row_fields
             if col_fields:
                 ctx["pivot_column_groupby"] = col_fields
-            ctx["pivot_measures"] = measure_fields if measure_fields else ["__count"]
+            ctx["pivot_measures"] = measure_specs if measure_specs else ["__count"]
 
             view_modes = ["pivot", "list", "form"]
             views = [
