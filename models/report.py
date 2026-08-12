@@ -258,6 +258,20 @@ class KaisightReport(models.Model):
             }
         )
 
+    def action_edit_in_builder(self):
+        """Open the Report Builder with this saved report loaded."""
+        self.ensure_one()
+        self._check_report_access("read")
+        return {
+            "type": "ir.actions.client",
+            "tag": "kai_view_report_builder",
+            "name": _("Report Builder"),
+            "params": {
+                "report_id": self.id,
+            },
+        }
+
+
     def action_open_report(self):
         """Open the filtered Odoo records for this report (not the definition)."""
         self.ensure_one()

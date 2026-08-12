@@ -21,6 +21,12 @@
                         class="btn btn-primary"
                         icon="fa-external-link"
                         title="Open the filtered records in Odoo"/>
+                <button name="action_edit_in_builder"
+                        type="object"
+                        string="Customize"
+                        class="btn btn-secondary"
+                        icon="fa-pencil"
+                        title="Edit in Report Builder"/>
                 <button name="action_export_xlsx"
                         type="object"
                         string="Excel"
@@ -48,6 +54,7 @@
             <form string="Saved report">
                 <header>
                     <button name="action_open_report" type="object" string="Run report" class="btn-primary"/>
+                    <button name="action_edit_in_builder" type="object" string="Edit in Report Builder" class="btn-secondary"/>
                     <button name="action_export_xlsx" type="object" string="Export Excel"/>
                     <button name="action_export_pdf" type="object" string="Export PDF"/>
                     <button name="action_schedule_report" type="object" string="Schedule"/>

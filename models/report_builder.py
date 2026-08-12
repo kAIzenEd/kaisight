@@ -742,3 +742,59 @@ class KaisightReportBuilder(models.TransientModel):
             "view_mode": "form",
             "target": "new",
         }
+
+    @api.model
+    def load_saved_report(self, report_id):
+        report = self.env["kai.view.report"].browse(int(report_id))
+        report._check_report_access("read")
+        # Find the matching data source for the model
+        source = self.env["kai.view.report.source"].search([("model_id", "=", report.model_id.id)], limit=1)
+        if not source:
+            raise UserError(_("No data source registered for model %s") % report.model_name)
+        
+        # Get field names in order
+        field_names = [line.field_id.name for line in report.field_ids.sorted("sequence") if line.field_id]
+        
+        return {
+            "id": report.id,
+            "name": report.name,
+            "is_shared": report.is_shared,
+            "source_id": source.id,
+            "model_name": report.model_name,
+            "domain": report.domain or "[]",
+            "field_names": field_names,
+        }
+
+    @api.model
+    def update_saved_report(
+        self,
+        report_id,
+        name,
+        model_name,
+        field_names,
+        domain_str="[]",
+        is_shared=False,
+        quick_filters=None,
+    ):
+        if not name:
+            raise UserError(_("Enter a name for this report."))
+        Report = self.env["kai.view.report"]
+        report = Report.browse(int(report_id))
+        report._check_report_access("write")
+        
+        # Remove existing fields
+        report.field_ids.unlink()
+        
+        line_vals = self._report_field_line_vals(model_name, field_names)
+        full_domain = self.build_full_domain(model_name, domain_str, quick_filters)
+        
+        report.write(
+            {
+                "name": name,
+                "domain": str(full_domain),
+                "field_ids": line_vals,
+                "is_shared": is_shared,
+            }
+        )
+        return {"id": report.id, "name": report.name}
+
