@@ -52,6 +52,10 @@
                     <input type="checkbox" class="form-check-input" id="kaiSaveShared" t-model="state.isShared"/>
                     <label class="form-check-label" for="kaiSaveShared">Share with all kaisight users</label>
                 </div>
+                <div class="form-check mb-2" t-if="props.isEditing">
+                    <input type="checkbox" class="form-check-input" id="kaiSaveAsCopy" t-model="state.saveAsCopy"/>
+                    <label class="form-check-label" for="kaiSaveAsCopy">Save as a new copy (instead of updating the existing report)</label>
+                </div>
                 <div class="alert alert-danger py-2" t-if="state.error" t-esc="state.error"/>
             </div>
             <t t-set-slot="footer">
@@ -70,9 +74,20 @@
                 <div>
                     <h1 class="kv-report-builder__title mb-1">
                         <i class="fa fa-table me-2"/>Report Builder
+                        <t t-if="state.editingReportId">
+                            <span class="badge bg-info text-white ms-2 fs-6">Editing: <t t-esc="state.editingReportName"/></span>
+                            <button type="button" class="btn btn-link btn-sm text-decoration-none ms-1 py-0 align-baseline" t-on-click="exitEditMode" title="Exit editing mode">
+                                <i class="fa fa-times-circle"/> Exit
+                            </button>
+                        </t>
                     </h1>
                     <p class="text-muted mb-0 small">
-                        Choose a data source, tick the columns you need, then export or save the report.
+                        <t t-if="state.editingReportId">
+                            You are modifying the saved report <strong><t t-esc="state.editingReportName"/></strong>. Save changes or save as a new copy.
+                        </t>
+                        <t t-else="">
+                            Choose a data source, tick the columns you need, then export or save the report.
+                        </t>
                     </p>
                 </div>
                 <div class="kv-report-builder__header-actions">

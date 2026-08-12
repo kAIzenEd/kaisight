@@ -13,12 +13,15 @@ export class KaisightSaveReportDialog extends Component {
         close: Function,
         onSave: Function,
         defaultName: { type: String, optional: true },
+        defaultIsShared: { type: Boolean, optional: true },
+        isEditing: { type: Boolean, optional: true },
     };
 
     setup() {
         this.state = useState({
             name: this.props.defaultName || "",
-            isShared: false,
+            isShared: this.props.defaultIsShared || false,
+            saveAsCopy: false,
             saving: false,
             error: null,
         });
@@ -32,7 +35,7 @@ export class KaisightSaveReportDialog extends Component {
         this.state.saving = true;
         this.state.error = null;
         try {
-            await this.props.onSave(this.state.name.trim(), this.state.isShared);
+            await this.props.onSave(this.state.name.trim(), this.state.isShared, this.state.saveAsCopy);
             this.props.close();
         } catch (e) {
             this.state.error = e.message || _t("Could not save report.");
@@ -152,14 +155,18 @@ export class KaisightReportBuilderAction extends Component {
             pivotMeasures: [],
             pivotPreviewData: null,
             loadingPivotPreview: false,
+            editingReportId: null,
+            editingReportName: "",
+            editingReportIsShared: false,
         });
 
         onWillStart(async () => {
-            await this.loadSources();
+            const reportId = this.props.action?.params?.report_id || this.props.action?.context?.active_id || null;
+            await this.loadSources(null, reportId);
         });
     }
 
-    async loadSources(preferSourceId = null) {
+    async loadSources(preferSourceId = null, reportId = null) {
         this.state.loading = true;
         this.state.error = null;
         try {
@@ -175,15 +182,97 @@ export class KaisightReportBuilderAction extends Component {
                 ? false
                 : !!catalog.can_manage_sources;
 
-            const preferred =
-                sources.find((s) => s.id === preferSourceId) ||
-                (sources.length === 1 ? sources[0] : null) ||
-                (this.state.selectedSource &&
-                    sources.find((s) => s.id === this.state.selectedSource.id));
-            if (preferred) {
-                await this.selectSource(preferred);
-            } else if (!sources.length) {
-                this.state.selectedSource = null;
+            let loadedReportData = null;
+            if (reportId) {
+                try {
+                    loadedReportData = await this.orm.call(
+                        "kai.view.report.builder",
+                        "load_saved_report",
+                        [reportId]
+                    );
+                } catch (reportError) {
+                    console.error("Could not load saved report details", reportError);
+                    this.notification.add(
+                        reportError.message || _t("Could not load the saved report details."),
+                        { type: "danger" }
+                    );
+                }
+            }
+
+            if (loadedReportData) {
+                this.state.editingReportId = loadedReportData.id;
+                this.state.editingReportName = loadedReportData.name;
+                this.state.editingReportIsShared = !!loadedReportData.is_shared;
+                this.state.reportType = loadedReportData.report_type || "list";
+                this.state.pivotRows = loadedReportData.pivot_row_names || [];
+                this.state.pivotCols = loadedReportData.pivot_col_names || [];
+                this.state.pivotMeasures = (loadedReportData.pivot_measure_names || []).map(name => ({
+                    field: name,
+                    agg: name === "__count" ? "count" : "sum"
+                }));
+                if (this.state.reportType === "pivot" && this.state.pivotMeasures.length === 0) {
+                    this.state.pivotMeasures = [{ field: "__count", agg: "count" }];
+                }
+
+                const source = sources.find((s) => s.id === loadedReportData.source_id);
+                if (source) {
+                    this.state.selectedSource = source;
+                    this.state.fieldSearch = "";
+                    this.state.domain = loadedReportData.domain || "[]";
+                    this.state.quickFilters = {};
+                    this.state.recordCount = null;
+                    this.state.collapsedFieldGroups = {};
+
+                    const fieldCatalog = await this.orm.call(
+                        "kai.view.report.builder",
+                        "get_field_catalog",
+                        [source.model]
+                    );
+                    this.state.fieldGroups = fieldCatalog.groups || [];
+
+                    const byName = {};
+                    for (const group of this.state.fieldGroups) {
+                        for (const field of group.fields || []) {
+                            byName[field.name] = field;
+                        }
+                    }
+                    const curatedNames = source.default_fields || [];
+                    this.state.curatedFields = curatedNames
+                        .map((name) => byName[name])
+                        .filter(Boolean);
+                    this.state.showAllFields = this.state.curatedFields.length === 0;
+
+                    try {
+                        const filterCatalog = await this.orm.call(
+                            "kai.view.report.builder",
+                            "get_filter_catalog",
+                            [source.model]
+                        );
+                        this.state.filterCatalog = filterCatalog.filters || [];
+                    } catch (filterError) {
+                        console.warn("Could not load quick filters", filterError);
+                        this.state.filterCatalog = [];
+                    }
+
+                    this.applySelection(loadedReportData.field_names);
+                    await this.refreshCount();
+                    if (this.state.reportType === "pivot") {
+                        await this.refreshPivotPreview();
+                    }
+                } else {
+                    this.state.error = _t("Matching data source not found for this report.");
+                }
+            } else {
+                const preferred =
+                    sources.find((s) => s.id === preferSourceId) ||
+                    (sources.length === 1 ? sources[0] : null) ||
+                    (this.state.selectedSource &&
+                        sources.find((s) => s.id === this.state.selectedSource.id));
+                if (preferred) {
+                    await this.selectSource(preferred);
+                } else if (!sources.length) {
+                    this.state.selectedSource = null;
+                }
             }
         } catch (e) {
             this.state.error = e.message || _t("Could not load data sources.");
@@ -206,6 +295,10 @@ export class KaisightReportBuilderAction extends Component {
     }
 
     async selectSource(source) {
+        this.state.editingReportId = null;
+        this.state.editingReportName = "";
+        this.state.editingReportIsShared = false;
+        this.state.reportType = "list";
         this.state.selectedSource = source;
         this.state.fieldSearch = "";
         this.state.domain = "[]";
@@ -838,25 +931,65 @@ export class KaisightReportBuilderAction extends Component {
             return;
         }
         this.dialog.add(KaisightSaveReportDialog, {
-            defaultName: this.state.selectedSource?.name || "",
+            defaultName: this.state.editingReportName || this.state.selectedSource?.name || "",
+            defaultIsShared: this.state.editingReportId ? this.state.editingReportIsShared : false,
+            isEditing: !!this.state.editingReportId,
             onSave: this.saveReport.bind(this),
         });
     }
 
-    async saveReport(name, isShared) {
-        await this.orm.call("kai.view.report.builder", "save_report", [], {
-            name,
-            model_name: this.state.selectedSource.model,
-            field_names: this.selectedFieldList,
-            domain_str: this.state.domain,
-            is_shared: isShared,
-            quick_filters: this.state.quickFilters,
-            report_type: this.state.reportType,
-            pivot_row_names: this.state.pivotRows,
-            pivot_col_names: this.state.pivotCols,
-            pivot_measure_names: this.pivotMeasureNames,
-        });
-        this.notification.add(_t("Report saved."), { type: "success" });
+    async saveReport(name, isShared, saveAsCopy = false) {
+        if (this.state.editingReportId && !saveAsCopy) {
+            await this.orm.call("kai.view.report.builder", "update_saved_report", [], {
+                report_id: this.state.editingReportId,
+                name,
+                model_name: this.state.selectedSource.model,
+                field_names: this.selectedFieldList,
+                domain_str: this.state.domain,
+                is_shared: isShared,
+                quick_filters: this.state.quickFilters,
+                report_type: this.state.reportType,
+                pivot_row_names: this.state.pivotRows,
+                pivot_col_names: this.state.pivotCols,
+                pivot_measure_names: this.pivotMeasureNames,
+            });
+            this.state.editingReportName = name;
+            this.state.editingReportIsShared = isShared;
+            this.notification.add(_t("Report changes saved."), { type: "success" });
+        } else {
+            const result = await this.orm.call("kai.view.report.builder", "save_report", [], {
+                name,
+                model_name: this.state.selectedSource.model,
+                field_names: this.selectedFieldList,
+                domain_str: this.state.domain,
+                is_shared: isShared,
+                quick_filters: this.state.quickFilters,
+                report_type: this.state.reportType,
+                pivot_row_names: this.state.pivotRows,
+                pivot_col_names: this.state.pivotCols,
+                pivot_measure_names: this.pivotMeasureNames,
+            });
+            if (result && result.id) {
+                this.state.editingReportId = result.id;
+                this.state.editingReportName = result.name;
+                this.state.editingReportIsShared = isShared;
+            }
+            this.notification.add(_t("Report saved."), { type: "success" });
+        }
+    }
+
+    async exitEditMode() {
+        this.state.editingReportId = null;
+        this.state.editingReportName = "";
+        this.state.editingReportIsShared = false;
+        this.state.reportType = "list";
+        this.state.pivotRows = [];
+        this.state.pivotCols = [];
+        this.state.pivotMeasures = [];
+        this.state.pivotPreviewData = null;
+        if (this.state.selectedSource) {
+            await this.selectSource(this.state.selectedSource);
+        }
     }
 
     async openSavedReports() {

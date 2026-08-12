@@ -933,3 +933,84 @@ class KaisightReportBuilder(models.TransientModel):
             "view_mode": "form",
             "target": "new",
         }
+
+    @api.model
+    def load_saved_report(self, report_id):
+        report = self.env["kai.view.report"].browse(int(report_id))
+        report._check_report_access("read")
+        # Find the matching data source for the model
+        source = self.env["kai.view.report.source"].search([("model_id", "=", report.model_id.id)], limit=1)
+        if not source:
+            raise UserError(_("No data source registered for model %s") % report.model_name)
+        
+        # Get field names in order
+        field_names = [line.field_id.name for line in report.field_ids.sorted("sequence") if line.field_id]
+        
+        pivot_row_names = [f.name for f in report.sudo().pivot_row_field_ids if f.name]
+        pivot_col_names = [f.name for f in report.sudo().pivot_col_field_ids if f.name]
+        pivot_measure_names = [f.name for f in report.sudo().pivot_measure_field_ids if f.name]
+        
+        return {
+            "id": report.id,
+            "name": report.name,
+            "is_shared": report.is_shared,
+            "source_id": source.id,
+            "model_name": report.model_name,
+            "domain": report.domain or "[]",
+            "field_names": field_names,
+            "report_type": report.report_type or "list",
+            "pivot_row_names": pivot_row_names,
+            "pivot_col_names": pivot_col_names,
+            "pivot_measure_names": pivot_measure_names,
+        }
+
+    @api.model
+    def update_saved_report(
+        self,
+        report_id,
+        name,
+        model_name,
+        field_names=None,
+        domain_str="[]",
+        is_shared=False,
+        quick_filters=None,
+        report_type="list",
+        pivot_row_names=None,
+        pivot_col_names=None,
+        pivot_measure_names=None,
+    ):
+        if not name:
+            raise UserError(_("Enter a name for this report."))
+        Report = self.env["kai.view.report"]
+        report = Report.browse(int(report_id))
+        report._check_report_access("write")
+        
+        # Remove existing fields
+        report.field_ids.unlink()
+        
+        line_vals = self._report_field_line_vals(model_name, field_names or [])
+        full_domain = self.build_full_domain(model_name, domain_str, quick_filters)
+        
+        report_vals = {
+            "name": name,
+            "domain": str(full_domain),
+            "field_ids": line_vals,
+            "report_type": report_type or "list",
+            "is_shared": is_shared,
+        }
+        if report_type == "pivot":
+            report_vals.update({
+                "pivot_row_field_ids": self._pivot_field_ids(model_name, pivot_row_names or []),
+                "pivot_col_field_ids": self._pivot_field_ids(model_name, pivot_col_names or []),
+                "pivot_measure_field_ids": self._pivot_field_ids(model_name, pivot_measure_names or []),
+            })
+        else:
+            report_vals.update({
+                "pivot_row_field_ids": [(6, 0, [])],
+                "pivot_col_field_ids": [(6, 0, [])],
+                "pivot_measure_field_ids": [(6, 0, [])],
+            })
+            
+        report.write(report_vals)
+        return {"id": report.id, "name": report.name}
+

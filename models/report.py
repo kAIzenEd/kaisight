@@ -298,7 +298,14 @@ class KaisightReport(models.Model):
 
     def action_open_report_builder(self):
         """Open the interactive Report Builder client action."""
-        return self.env.ref("kaisight.action_kai_view_report_builder_client").read()[0]
+        action = self.env.ref("kaisight.action_kai_view_report_builder_client").sudo().read()[0]
+        if self:
+            self.ensure_one()
+            self._check_report_access("read")
+            action["params"] = {
+                "report_id": self.id,
+            }
+        return action
 
     def action_open_report(self, target=None):
         """Open the filtered Odoo records for this report (not the definition)."""

@@ -29,6 +29,12 @@
                         class="btn btn-primary"
                         icon="fa-external-link"
                         title="Open the filtered records in Odoo"/>
+                <button name="action_open_report_builder"
+                        type="object"
+                        string="Customize"
+                        class="btn btn-secondary"
+                        icon="fa-pencil"
+                        title="Edit in Report Builder"/>
                 <button name="action_export_xlsx"
                         type="object"
                         string="Excel"
