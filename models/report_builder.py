@@ -11,13 +11,13 @@ from odoo.exceptions import AccessError, UserError, ValidationError
 from .report import _IMAGE_FIELD_TOKENS, _LIST_SKIP_TYPES, _is_image_field_name
 
 _FIELD_CATEGORY_ORDER = [
-    ("identity", _("Names & IDs")),
-    ("contact", _("Contact")),
-    ("dates", _("Dates")),
-    ("status", _("Status & choices")),
-    ("relations", _("Related records")),
-    ("numbers", _("Numbers")),
-    ("other", _("Other fields")),
+    ("identity", "Names & IDs"),
+    ("contact", "Contact"),
+    ("dates", "Dates"),
+    ("status", "Status & choices"),
+    ("relations", "Related records"),
+    ("numbers", "Numbers"),
+    ("other", "Other fields"),
 ]
 
 # Common filter fields shown first per model (others auto-added for selection types).
