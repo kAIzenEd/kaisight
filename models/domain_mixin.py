@@ -11,7 +11,7 @@ class KaiViewDomainMixin(models.AbstractModel):
     _description = "kaisight domain helpers"
 
     @api.model
-    def _parse_domain_string(self, domain_str, label=_("Filter")):
+    def _parse_domain_string(self, domain_str, label="Filter"):
         """Parse a domain stored on a Char field (Python literal from the domain widget)."""
         text = (domain_str or "[]").strip()
         if not text:
@@ -23,10 +23,10 @@ class KaiViewDomainMixin(models.AbstractModel):
                 domain = safe_eval(text)
             except Exception as exc:
                 raise ValidationError(
-                    _("%(label)s is not valid: %(error)s") % {"label": label, "error": exc}
+                    _("%(label)s is not valid: %(error)s") % {"label": _(label), "error": exc}
                 ) from exc
         if not isinstance(domain, list):
-            raise ValidationError(_("%s must be a list.") % label)
+            raise ValidationError(_("%s must be a list.") % _(label))
         return domain
 
     @api.model
