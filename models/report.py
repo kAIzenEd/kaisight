@@ -1,8 +1,12 @@
 # -*- coding: utf-8 -*-
+import logging
+
 from odoo import _, api, fields, models
 from odoo.exceptions import AccessError, UserError, ValidationError
 
 from .action_utils import prepare_act_window_action
+
+_logger = logging.getLogger(__name__)
 
 _LIST_SKIP_TYPES = frozenset({"one2many", "many2many", "binary", "html", "reference"})
 _IMAGE_FIELD_TOKENS = ("photo", "image", "avatar", "picture", "logo")
@@ -412,6 +416,123 @@ class KaisightReport(models.Model):
 
     def action_export_csv(self):
         return self._action_export("csv")
+
+    @api.model
+    def ensure_students_missing_primary_whatsapp_report(self):
+        """Create the shared student report when school WhatsApp fields exist."""
+        if "school.student" not in self.env:
+            return True
+        student_model = self.env["school.student"]
+        required = (
+            "primary_whatsapp_father",
+            "primary_whatsapp_mother",
+            "primary_whatsapp_guardian",
+            "primary_whatsapp_other",
+            "father_mobile",
+            "mother_mobile",
+            "guardian_phone",
+            "other_contact_mobile",
+            "student_id",
+            "name",
+        )
+        if any(name not in student_model._fields for name in required):
+            return True
+
+        ir_model = self.env["ir.model"].sudo().search(
+            [("model", "=", "school.student")], limit=1
+        )
+        if not ir_model:
+            return True
+
+        domain = [
+            "&",
+            "&",
+            "&",
+            "|",
+            ("primary_whatsapp_father", "=", False),
+            "|",
+            ("father_mobile", "=", False),
+            ("father_mobile", "=", ""),
+            "|",
+            ("primary_whatsapp_mother", "=", False),
+            "|",
+            ("mother_mobile", "=", False),
+            ("mother_mobile", "=", ""),
+            "|",
+            ("primary_whatsapp_guardian", "=", False),
+            "|",
+            ("guardian_phone", "=", False),
+            ("guardian_phone", "=", ""),
+            "|",
+            ("primary_whatsapp_other", "=", False),
+            "|",
+            ("other_contact_mobile", "=", False),
+            ("other_contact_mobile", "=", ""),
+        ]
+        xml_module = "kaisight"
+        xml_name = "report_students_missing_primary_whatsapp"
+        report = self.env.ref(
+            "%s.%s" % (xml_module, xml_name), raise_if_not_found=False
+        ) or self.env.ref(
+            "kaisight_whatsapp.report_students_missing_primary_whatsapp",
+            raise_if_not_found=False,
+        )
+        vals = {
+            "description": _(
+                "Students with no Father, Mother, Guardian, or Other contact "
+                "both marked as primary WhatsApp and holding a phone number."
+            ),
+            "model_id": ir_model.id,
+            "domain": str(domain),
+            "is_shared": True,
+            "report_type": "list",
+            "active": True,
+        }
+        if report:
+            report.sudo().write(vals)
+        else:
+            report = self.sudo().create(
+                {
+                    "name": _("Students without a primary WhatsApp number"),
+                    **vals,
+                }
+            )
+            existing_xml = self.env["ir.model.data"].sudo().search(
+                [("module", "=", xml_module), ("name", "=", xml_name)],
+                limit=1,
+            )
+            if not existing_xml:
+                self.env["ir.model.data"].sudo().create(
+                    {
+                        "name": xml_name,
+                        "module": xml_module,
+                        "model": "kai.view.report",
+                        "res_id": report.id,
+                        "noupdate": True,
+                    }
+                )
+
+        IrField = self.env["ir.model.fields"].sudo()
+        commands = [(5, 0, 0)]
+        sequence = 10
+        for fname in ("student_id", "name"):
+            field = IrField.search(
+                [("model", "=", "school.student"), ("name", "=", fname)],
+                limit=1,
+            )
+            if field:
+                commands.append((0, 0, {"field_id": field.id, "sequence": sequence}))
+                sequence += 10
+        if len(commands) > 1:
+            report.sudo().write({"field_ids": commands})
+        return True
+
+    def _register_hook(self):
+        super()._register_hook()
+        try:
+            self.ensure_students_missing_primary_whatsapp_report()
+        except Exception:
+            _logger.exception("Could not create the missing-primary-WhatsApp student report")
 
     def action_schedule_report(self):
         """Open a new schedule pre-filled for this saved report."""

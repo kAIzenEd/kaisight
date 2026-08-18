@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <function model="kai.view.report" name="ensure_students_missing_primary_whatsapp_report"/>
+</odoo>

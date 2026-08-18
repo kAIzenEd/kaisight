@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "kaisight",
-    "version": "19.0.1.1.22",
+    "version": "19.0.1.1.23",
     "category": "Productivity/Reporting",
     "summary": "Interactive dashboards and saved reports for any Odoo model",
     "description": """
@@ -24,6 +24,7 @@ Builder data source after install — no hardcoded school fields required.
         "security/ir_model_access_meta.xml",
         "data/demo_dashboard.xml",
         "data/report_schedule_cron.xml",
+        "data/missing_whatsapp_report.xml",
         "views/report_views.xml",
         "views/report_schedule_views.xml",
         "views/report_builder_views.xml",
