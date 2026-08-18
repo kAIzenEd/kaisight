@@ -37,7 +37,7 @@
                     <field name="description" placeholder="Short help text shown in the report builder…"/>
                     <group string="Recommended columns" invisible="not model_id">
                         <p class="text-muted" colspan="2">
-                            Optional. Pre-selects columns in the Report Builder. Leave empty to auto-suggest common fields.
+                            Optional. Pre-selects columns in the Report Builder. Named common sets are saved from the Report Builder Common set menu.
                         </p>
                         <field name="default_field_ids" widget="many2many_tags" nolabel="1" colspan="2"
                             options="{'no_create': True}"/>

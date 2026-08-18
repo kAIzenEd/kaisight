@@ -10,6 +10,8 @@ _ACCESS_RULES = (
     ("kai.view.report.source manager", "kai.view.report.source", "kaisight.group_kai_view_manager", 1, 1, 1, 1),
     ("kai.view.report.builder user", "kai.view.report.builder", "kaisight.group_kai_view_user", 1, 1, 1, 1),
     ("kai.view.report.builder manager", "kai.view.report.builder", "kaisight.group_kai_view_manager", 1, 1, 1, 1),
+    ("kai.view.report.source.set user", "kai.view.report.source.set", "kaisight.group_kai_view_user", 1, 0, 0, 0),
+    ("kai.view.report.source.set manager", "kai.view.report.source.set", "kaisight.group_kai_view_manager", 1, 1, 1, 1),
 )
 
 

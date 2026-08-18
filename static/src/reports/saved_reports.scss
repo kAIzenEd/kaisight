@@ -25,6 +25,55 @@
     }
 }
 
+/* Preview in Dialog: pin both scrollbars to the visible pane.
+   Without this, the modal body scrolls vertically and the table's
+   horizontal bar only appears after scrolling to the last row. */
+.o_dialog:has(.o_kaisight_wide_report) {
+    .modal-content {
+        height: 90vh;
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header,
+    .modal-footer {
+        flex: 0 0 auto;
+    }
+
+    .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: hidden !important;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .o_action,
+    .o_view_controller,
+    .o_content,
+    .o_list_view.o_kaisight_wide_report {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: 100%;
+        max-height: 100%;
+        overflow: hidden !important;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .o_control_panel {
+        flex: 0 0 auto;
+    }
+
+    .o_list_renderer.table-responsive {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
+        overflow: auto !important;
+    }
+}
+
 /* Saved Reports list — clearer hierarchy for everyday use */
 .o_kai_saved_reports_list {
     .o_list_renderer .o_data_row {

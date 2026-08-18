@@ -44,6 +44,9 @@
         <field name="perm_unlink" eval="1"/>
     </record>
 
-    <!-- Safety net if search somehow misses during an edge-case upgrade -->
+    <!--
+        New models are not always in ir.model yet when this file is parsed, so
+        their ACL rows are created by ensure_access_rights() instead of XML.
+    -->
     <function model="kai.view.report.source" name="ensure_access_rights"/>
 </odoo>

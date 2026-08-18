@@ -2,7 +2,7 @@
 
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onWillStart, useState, useExternalListener } from "@odoo/owl";
 import { _t } from "@web/core/l10n/translation";
 import { Dialog } from "@web/core/dialog/dialog";
 
@@ -39,6 +39,43 @@ export class KaisightSaveReportDialog extends Component {
             this.props.close();
         } catch (e) {
             this.state.error = e.message || _t("Could not save report.");
+            this.state.saving = false;
+        }
+    }
+}
+
+export class KaisightSaveCommonSetDialog extends Component {
+    static template = "kaisight.SaveCommonSetDialog";
+    static components = { Dialog };
+    static props = {
+        close: Function,
+        onSave: Function,
+        defaultName: { type: String, optional: true },
+        isUpdate: { type: Boolean, optional: true },
+        defaultIsDefault: { type: Boolean, optional: true },
+    };
+
+    setup() {
+        this.state = useState({
+            name: this.props.defaultName || "",
+            isDefault: this.props.defaultIsDefault || false,
+            saving: false,
+            error: null,
+        });
+    }
+
+    async onConfirm() {
+        if (!this.state.name.trim()) {
+            this.state.error = _t("Enter a name for this common set.");
+            return;
+        }
+        this.state.saving = true;
+        this.state.error = null;
+        try {
+            await this.props.onSave(this.state.name.trim(), this.state.isDefault);
+            this.props.close();
+        } catch (e) {
+            this.state.error = e.message || _t("Could not save the common set.");
             this.state.saving = false;
         }
     }
@@ -117,7 +154,7 @@ export class KaisightAddSourceDialog extends Component {
 
 export class KaisightReportBuilderAction extends Component {
     static template = "kaisight.ReportBuilder";
-    static components = { KaisightSaveReportDialog, KaisightAddSourceDialog };
+    static components = { KaisightSaveReportDialog, KaisightAddSourceDialog, KaisightSaveCommonSetDialog };
     static props = ["*"];
 
     setup() {
@@ -133,6 +170,9 @@ export class KaisightReportBuilderAction extends Component {
             selectedSource: null,
             fieldGroups: [],
             curatedFields: [],
+            commonSets: [],
+            activeCommonSetId: null,
+            commonSetMenuOpen: false,
             showAllFields: false,
             collapsedFieldGroups: {},
             filterCatalog: [],
@@ -158,6 +198,10 @@ export class KaisightReportBuilderAction extends Component {
             editingReportId: null,
             editingReportName: "",
             editingReportIsShared: false,
+        });
+
+        useExternalListener(window, "click", () => {
+            this.state.commonSetMenuOpen = false;
         });
 
         onWillStart(async () => {
@@ -236,11 +280,7 @@ export class KaisightReportBuilderAction extends Component {
                             byName[field.name] = field;
                         }
                     }
-                    const curatedNames = source.default_fields || [];
-                    this.state.curatedFields = curatedNames
-                        .map((name) => byName[name])
-                        .filter(Boolean);
-                    this.state.showAllFields = this.state.curatedFields.length === 0;
+                    this.applySourceCommonSets(source, byName, loadedReportData.field_names);
 
                     try {
                         const filterCatalog = await this.orm.call(
@@ -323,11 +363,7 @@ export class KaisightReportBuilderAction extends Component {
                     byName[field.name] = field;
                 }
             }
-            const curatedNames = source.default_fields || [];
-            this.state.curatedFields = curatedNames
-                .map((name) => byName[name])
-                .filter(Boolean);
-            this.state.showAllFields = this.state.curatedFields.length === 0;
+            this.applySourceCommonSets(source, byName);
 
             try {
                 const filterCatalog = await this.orm.call(
@@ -341,12 +377,14 @@ export class KaisightReportBuilderAction extends Component {
                 this.state.filterCatalog = [];
             }
 
-            if (this.state.curatedFields.length) {
-                this.applySelection(this.state.curatedFields.map((field) => field.name));
-            } else {
-                const firstGroup = this.state.fieldGroups[0];
-                const pick = (firstGroup?.fields || []).slice(0, 6).map((f) => f.name);
-                this.applySelection(pick);
+            if (!this.state.editingReportId) {
+                if (this.state.curatedFields.length) {
+                    this.applySelection(this.state.curatedFields.map((field) => field.name));
+                } else {
+                    const firstGroup = this.state.fieldGroups[0];
+                    const pick = (firstGroup?.fields || []).slice(0, 6).map((f) => f.name);
+                    this.applySelection(pick);
+                }
             }
             await this.refreshCount();
             if (this.state.reportType === "pivot") {
@@ -360,6 +398,162 @@ export class KaisightReportBuilderAction extends Component {
 
     get hasCuratedFields() {
         return (this.state.curatedFields || []).length > 0;
+    }
+
+    get commonSets() {
+        return this.state.commonSets || [];
+    }
+
+    get activeCommonSet() {
+        return this.commonSets.find((set) => set.id === this.state.activeCommonSetId) || null;
+    }
+
+    fieldsFromNames(names) {
+        const byName = {};
+        for (const group of this.state.fieldGroups) {
+            for (const field of group.fields || []) {
+                byName[field.name] = field;
+            }
+        }
+        return (names || []).map((name) => byName[name]).filter(Boolean);
+    }
+
+    applySourceCommonSets(source) {
+        const sets = source?.common_sets || [];
+        this.state.commonSets = sets;
+        const defaultSet = sets.find((set) => set.is_default) || sets[0] || null;
+        this.state.activeCommonSetId = defaultSet ? defaultSet.id : null;
+        const curatedNames = defaultSet?.field_names || source?.default_fields || [];
+        this.state.curatedFields = this.fieldsFromNames(curatedNames);
+        this.state.showAllFields = this.state.curatedFields.length === 0;
+    }
+
+    toggleCommonSetMenu(ev) {
+        ev.stopPropagation();
+        this.state.commonSetMenuOpen = !this.state.commonSetMenuOpen;
+    }
+
+    applyCommonSet(set) {
+        if (!set) {
+            return;
+        }
+        this.state.activeCommonSetId = set.id;
+        this.state.curatedFields = this.fieldsFromNames(set.field_names);
+        this.applySelection(set.field_names || []);
+        this.state.showAllFields = false;
+        this.state.fieldSearch = "";
+        this.state.commonSetMenuOpen = false;
+    }
+
+    nextCommonSetName() {
+        const used = new Set(this.commonSets.map((set) => (set.name || "").toLowerCase()));
+        let index = this.commonSets.length + 1;
+        let name = `${_t("Common set")} ${index}`;
+        while (used.has(name.toLowerCase())) {
+            index += 1;
+            name = `${_t("Common set")} ${index}`;
+        }
+        return name;
+    }
+
+    openSaveCommonSetDialog(setToUpdate = null) {
+        if (!this.state.canManageSources || !this.state.selectedSource) {
+            return;
+        }
+        if (!this.selectedCount) {
+            this.notification.add(_t("Select at least one column first."), {
+                type: "warning",
+            });
+            return;
+        }
+        this.state.commonSetMenuOpen = false;
+        this.dialog.add(KaisightSaveCommonSetDialog, {
+            defaultName: setToUpdate?.name || this.nextCommonSetName(),
+            isUpdate: !!setToUpdate,
+            defaultIsDefault: setToUpdate ? !!setToUpdate.is_default : this.commonSets.length === 0,
+            onSave: async (name, isDefault) => {
+                await this.persistCommonSet(name, isDefault, setToUpdate?.id || null);
+            },
+        });
+    }
+
+    async persistCommonSet(name, isDefault, setId = null) {
+        const result = await this.orm.call(
+            "kai.view.report.builder",
+            "save_common_set",
+            [],
+            {
+                source_id: this.state.selectedSource.id,
+                name,
+                field_names: this.selectedFieldList,
+                set_id: setId,
+                is_default: isDefault,
+            }
+        );
+        this.applySavedCommonSetResult(result);
+        this.notification.add(
+            setId ? _t("Common set updated.") : _t("Common set saved."),
+            { type: "success" }
+        );
+    }
+
+    applySavedCommonSetResult(result) {
+        const sets = result?.common_sets || [];
+        this.state.commonSets = sets;
+        if (this.state.selectedSource) {
+            this.state.selectedSource.common_sets = sets;
+            this.state.selectedSource.default_fields = result?.default_fields || [];
+        }
+        const saved = sets.find((set) => set.id === result?.set_id);
+        if (saved) {
+            this.state.activeCommonSetId = saved.id;
+            this.state.curatedFields = this.fieldsFromNames(saved.field_names);
+            this.state.showAllFields = false;
+        }
+        const sourceId = this.state.selectedSource?.id;
+        const catalogSource = this.state.sources.find((source) => source.id === sourceId);
+        if (catalogSource) {
+            catalogSource.common_sets = sets;
+            catalogSource.default_fields = result?.default_fields || [];
+        }
+    }
+
+    async deleteActiveCommonSet() {
+        const current = this.activeCommonSet;
+        if (!this.state.canManageSources || !this.state.selectedSource || !current) {
+            return;
+        }
+        this.state.commonSetMenuOpen = false;
+        try {
+            const result = await this.orm.call(
+                "kai.view.report.builder",
+                "delete_common_set",
+                [this.state.selectedSource.id, current.id]
+            );
+            this.state.commonSets = result?.common_sets || [];
+            if (this.state.selectedSource) {
+                this.state.selectedSource.common_sets = this.state.commonSets;
+                this.state.selectedSource.default_fields = result?.default_fields || [];
+            }
+            const next = this.state.commonSets.find((set) => set.is_default) || this.state.commonSets[0];
+            if (next) {
+                this.applyCommonSet(next);
+            } else {
+                this.state.activeCommonSetId = null;
+                this.state.curatedFields = [];
+                this.state.showAllFields = true;
+            }
+            this.notification.add(_t("Common set deleted."), { type: "success" });
+        } catch (error) {
+            this.notification.add(
+                error.message || _t("Could not delete the common set."),
+                { type: "danger" }
+            );
+        }
+    }
+
+    async saveCommonSet() {
+        this.openSaveCommonSetDialog();
     }
 
     get filteredGroups() {
@@ -515,45 +709,6 @@ export class KaisightReportBuilderAction extends Component {
         this.state.dragFieldName = null;
     }
 
-    async saveCommonSet() {
-        if (!this.state.canManageSources || !this.state.selectedSource) {
-            return;
-        }
-        if (!this.selectedCount) {
-            this.notification.add(_t("Select at least one column first."), {
-                type: "warning",
-            });
-            return;
-        }
-        this.state.savingCommonSet = true;
-        try {
-            const result = await this.orm.call(
-                "kai.view.report.builder",
-                "set_source_default_fields",
-                [this.state.selectedSource.id, this.selectedFieldList]
-            );
-            const defaults = result?.default_fields || this.selectedFieldList;
-            this.state.selectedSource.default_fields = defaults;
-            const byName = {};
-            for (const group of this.state.fieldGroups) {
-                for (const field of group.fields || []) {
-                    byName[field.name] = field;
-                }
-            }
-            this.state.curatedFields = defaults.map((name) => byName[name]).filter(Boolean);
-            this.notification.add(_t("Common columns saved as the default."), {
-                type: "success",
-            });
-        } catch (error) {
-            this.notification.add(
-                error.message || _t("Could not save the common columns."),
-                { type: "danger" }
-            );
-        } finally {
-            this.state.savingCommonSet = false;
-        }
-    }
-
     toggleShowAllFields() {
         this.state.showAllFields = !this.state.showAllFields;
         if (!this.state.showAllFields) {
@@ -562,6 +717,11 @@ export class KaisightReportBuilderAction extends Component {
     }
 
     selectRecommended() {
+        const current = this.activeCommonSet;
+        if (current) {
+            this.applyCommonSet(current);
+            return;
+        }
         const curated = this.state.curatedFields || [];
         if (curated.length) {
             this.applySelection(curated.map((field) => field.name));
@@ -569,12 +729,7 @@ export class KaisightReportBuilderAction extends Component {
             this.state.fieldSearch = "";
             return;
         }
-        const defaults = this.state.selectedSource?.default_fields || [];
-        if (defaults.length) {
-            this.applySelection(defaults);
-        } else {
-            this.selectAllVisible();
-        }
+        this.openSaveCommonSetDialog();
     }
 
     selectAllVisible() {

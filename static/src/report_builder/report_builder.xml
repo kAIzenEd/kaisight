@@ -68,8 +68,33 @@
         </Dialog>
     </t>
 
+    <t t-name="kaisight.SaveCommonSetDialog">
+        <Dialog title="props.isUpdate ? 'Update common set' : 'Save common set'" size="'md'">
+            <div class="p-2">
+                <div class="mb-3">
+                    <label class="form-label">Set name</label>
+                    <input type="text" class="form-control" t-model="state.name" placeholder="e.g. Directory columns"/>
+                </div>
+                <div class="form-check mb-2">
+                    <input type="checkbox" class="form-check-input" id="kaiCommonSetDefault" t-model="state.isDefault"/>
+                    <label class="form-check-label" for="kaiCommonSetDefault">Use as the default when this data source is opened</label>
+                </div>
+                <div class="alert alert-danger py-2" t-if="state.error" t-esc="state.error"/>
+            </div>
+            <t t-set-slot="footer">
+                <button type="button" class="btn btn-secondary" t-on-click="props.close">Cancel</button>
+                <button type="button" class="btn btn-primary" t-att-disabled="state.saving" t-on-click="onConfirm">
+                    <t t-if="state.saving">Saving…</t>
+                    <t t-elif="props.isUpdate">Update set</t>
+                    <t t-else="">Save set</t>
+                </button>
+            </t>
+        </Dialog>
+    </t>
+
     <t t-name="kaisight.ReportBuilder">
         <div class="o_kai_report_builder o_action o_view_controller kv-report-builder">
+            <div class="o_content kv-report-builder__scroll">
             <header class="kv-report-builder__header">
                 <div>
                     <h1 class="kv-report-builder__title mb-1">
@@ -429,11 +454,46 @@
                                             <i class="fa fa-compress me-1"/>Collapse all
                                         </button>
                                     </div>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm"
-                                        t-if="hasCuratedFields"
-                                        t-on-click="selectRecommended">
-                                        Common set
-                                    </button>
+                                    <div class="kv-common-set-menu">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                                            t-on-click="toggleCommonSetMenu">
+                                            Common set
+                                        </button>
+                                        <div class="dropdown-menu kv-common-set-menu__dropdown"
+                                            t-att-class="{'show': state.commonSetMenuOpen}">
+                                            <t t-if="commonSets.length">
+                                                <h6 class="dropdown-header">Apply a set</h6>
+                                                <t t-foreach="commonSets" t-as="set" t-key="set.id">
+                                                    <button type="button" class="dropdown-item"
+                                                        t-att-class="{'active': activeCommonSet and activeCommonSet.id === set.id}"
+                                                        t-on-click="() => this.applyCommonSet(set)">
+                                                        <t t-esc="set.name"/>
+                                                        <span class="text-muted small ms-1" t-if="set.is_default">· default</span>
+                                                    </button>
+                                                </t>
+                                                <div class="dropdown-divider"/>
+                                            </t>
+                                            <t t-if="state.canManageSources">
+                                                <button type="button" class="dropdown-item"
+                                                    t-on-click="() => this.openSaveCommonSetDialog()">
+                                                    <i class="fa fa-plus me-1"/>Save current as new set…
+                                                </button>
+                                                <button type="button" class="dropdown-item"
+                                                    t-if="activeCommonSet"
+                                                    t-on-click="() => this.openSaveCommonSetDialog(this.activeCommonSet)">
+                                                    <i class="fa fa-save me-1"/>Update “<t t-esc="activeCommonSet.name"/>”
+                                                </button>
+                                                <button type="button" class="dropdown-item text-danger"
+                                                    t-if="activeCommonSet"
+                                                    t-on-click="deleteActiveCommonSet">
+                                                    <i class="fa fa-trash-o me-1"/>Delete “<t t-esc="activeCommonSet.name"/>”
+                                                </button>
+                                            </t>
+                                            <div class="dropdown-item-text text-muted small" t-if="!commonSets.length and !state.canManageSources">
+                                                No common sets yet.
+                                            </div>
+                                        </div>
+                                    </div>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="selectAllVisible">Select visible</button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" t-on-click="clearSelection">Clear</button>
                                 </div>
@@ -497,11 +557,10 @@
                                     <button type="button" class="btn btn-outline-secondary btn-sm"
                                         t-if="state.canManageSources"
                                         t-att-disabled="state.savingCommonSet"
-                                        title="Replace this data source's default common columns with the current selection"
-                                        t-on-click="saveCommonSet">
+                                        title="Save the current column selection as a named common set"
+                                        t-on-click="() => this.openSaveCommonSetDialog()">
                                         <i class="fa fa-bookmark-o me-1"/>
-                                        <t t-if="state.savingCommonSet">Saving…</t>
-                                        <t t-else="">Save selection as common set</t>
+                                        Save as new common set
                                     </button>
                                 </div>
                                 <ul class="kv-selected-columns">
@@ -571,6 +630,7 @@
                     </div>
                 </div>
             </t>
+            </div>
         </div>
     </t>
 </templates>

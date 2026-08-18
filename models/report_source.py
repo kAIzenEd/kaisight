@@ -51,6 +51,11 @@ class KaisightReportSource(models.Model):
         "the Report Builder.",
         copy=False,
     )
+    common_set_ids = fields.One2many(
+        "kai.view.report.source.set",
+        "source_id",
+        string="Common sets",
+    )
 
     @api.model
     def ensure_access_rights(self):

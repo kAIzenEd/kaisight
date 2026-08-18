@@ -179,6 +179,150 @@ class KaisightReportBuilder(models.TransientModel):
         )
         return {"default_fields": self._ordered_default_field_names(source)}
 
+    def _sanitize_source_field_names(self, source, field_names):
+        model_name = source.model_name
+        model_fields = self.env[model_name]._fields if model_name in self.env else {}
+        ordered_names = []
+        for name in field_names or []:
+            if name in ordered_names:
+                continue
+            if model_fields and name not in model_fields:
+                continue
+            ordered_names.append(name)
+        return ordered_names
+
+    def _sync_source_default_fields(self, source, ordered_names):
+        field_records = (
+            self.env["ir.model.fields"]
+            .sudo()
+            .search([("model", "=", source.model_name), ("name", "in", ordered_names)])
+        )
+        source.write(
+            {
+                "default_field_ids": [(6, 0, field_records.ids)],
+                "default_field_order": json.dumps(ordered_names),
+            }
+        )
+
+    def _common_set_vals(self, rec):
+        names = rec.field_names or []
+        if not isinstance(names, list):
+            names = []
+        return {
+            "id": rec.id,
+            "name": rec.name,
+            "field_names": names,
+            "is_default": bool(rec.is_default),
+        }
+
+    def _ensure_source_common_sets(self, source):
+        Set = self.env["kai.view.report.source.set"].sudo()
+        existing = Set.search([("source_id", "=", source.id)], order="sequence, name, id")
+        if existing:
+            return existing
+        names = self._ordered_default_field_names(source)
+        if not names:
+            return existing
+        return Set.create(
+            {
+                "source_id": source.id,
+                "name": _("Common columns"),
+                "field_names": names,
+                "is_default": True,
+                "sequence": 10,
+            }
+        )
+
+    def _common_sets_payload(self, source):
+        return [self._common_set_vals(rec) for rec in self._ensure_source_common_sets(source)]
+
+    @api.model
+    def save_common_set(
+        self,
+        source_id,
+        name,
+        field_names,
+        set_id=None,
+        is_default=False,
+    ):
+        """Create or update a named common set for a data source."""
+        if not self.env.user.has_group("kaisight.group_kai_view_manager"):
+            raise AccessError(_("Only kaisight administrators can change common sets."))
+
+        source = (
+            self.env["kai.view.report.source"].sudo().browse(int(source_id)).exists()
+        )
+        if not source:
+            raise UserError(_("This data source no longer exists."))
+
+        set_name = (name or "").strip()
+        if not set_name:
+            raise UserError(_("Enter a name for this common set."))
+
+        ordered_names = self._sanitize_source_field_names(source, field_names)
+        if not ordered_names:
+            raise UserError(_("Select at least one valid column."))
+
+        Set = self.env["kai.view.report.source.set"].sudo()
+        record = Set.browse(int(set_id)).exists() if set_id else Set.browse()
+        existing_sets = self._ensure_source_common_sets(source)
+        vals = {
+            "name": set_name,
+            "field_names": ordered_names,
+            "is_default": bool(is_default) or not existing_sets,
+        }
+        if record and record.source_id.id != source.id:
+            raise UserError(_("This common set does not belong to the selected data source."))
+        if record:
+            record.write(vals)
+        else:
+            vals.update({"source_id": source.id})
+            record = Set.create(vals)
+
+        if record.is_default:
+            self._sync_source_default_fields(source, ordered_names)
+
+        return {
+            "common_sets": self._common_sets_payload(source),
+            "default_fields": self._ordered_default_field_names(source),
+            "set_id": record.id,
+        }
+
+    @api.model
+    def delete_common_set(self, source_id, set_id):
+        if not self.env.user.has_group("kaisight.group_kai_view_manager"):
+            raise AccessError(_("Only kaisight administrators can change common sets."))
+
+        source = (
+            self.env["kai.view.report.source"].sudo().browse(int(source_id)).exists()
+        )
+        if not source:
+            raise UserError(_("This data source no longer exists."))
+
+        record = (
+            self.env["kai.view.report.source.set"]
+            .sudo()
+            .browse(int(set_id))
+            .exists()
+        )
+        if not record or record.source_id.id != source.id:
+            raise UserError(_("This common set no longer exists."))
+
+        was_default = record.is_default
+        record.unlink()
+        remaining = self._ensure_source_common_sets(source)
+        if was_default and remaining:
+            remaining[0].write({"is_default": True})
+            names = remaining[0].field_names if isinstance(remaining[0].field_names, list) else []
+            self._sync_source_default_fields(source, names)
+        elif not remaining:
+            self._sync_source_default_fields(source, [])
+
+        return {
+            "common_sets": self._common_sets_payload(source),
+            "default_fields": self._ordered_default_field_names(source),
+        }
+
     @api.model
     def get_source_catalog(self):
         """Return data sources the current user may export from."""
@@ -197,6 +341,7 @@ class KaisightReportBuilder(models.TransientModel):
                     "model": source.model_name,
                     "default_fields": defaults,
                     "has_curated_fields": bool(defaults),
+                    "common_sets": self._common_sets_payload(source),
                 }
             )
         return {

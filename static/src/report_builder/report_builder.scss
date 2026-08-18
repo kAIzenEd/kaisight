@@ -1,11 +1,24 @@
+.o_action_manager .o_kai_report_builder.kv-report-builder.o_action.o_view_controller,
 .o_kai_report_builder.kv-report-builder {
     background: var(--o-view-background-color, #f8f9fa);
-    min-height: 100%;
+    min-height: 0;
     height: 100%;
-    overflow: auto;
+    max-height: 100%;
+    overflow: hidden !important;
     display: flex;
     flex-direction: column;
-    padding: 1rem 1.25rem 2rem;
+    padding: 0;
+
+    > .o_content.kv-report-builder__scroll {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: 100%;
+        max-height: 100%;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        overscroll-behavior: contain;
+        padding: 1rem 1.25rem 2rem;
+    }
 
     .kv-report-builder__header {
         display: flex;
@@ -29,8 +42,8 @@
         grid-template-columns: minmax(220px, 280px) 1fr;
         gap: 1.25rem;
         align-items: start;
-        min-height: 0;
-        flex: 1 1 auto;
+        min-height: min-content;
+        flex: 1 0 auto;
     }
 
     .kv-report-builder__sources {
@@ -115,8 +128,9 @@
         border-radius: 0.5rem;
         display: flex;
         flex-direction: column;
-        min-height: 420px;
+        min-height: min-content;
         min-width: 0;
+        overflow: visible;
     }
 
     .kv-report-builder__filters {
@@ -175,6 +189,26 @@
         flex-wrap: wrap;
         align-items: center;
         gap: 0.5rem;
+        overflow: visible;
+    }
+
+    .kv-common-set-menu {
+        position: relative;
+
+        .kv-common-set-menu__dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            right: 0;
+            left: auto;
+            z-index: 30;
+            min-width: 17rem;
+            margin-top: 0.15rem;
+
+            &.show {
+                display: block;
+            }
+        }
     }
 
     .kv-report-builder__search {
@@ -183,8 +217,8 @@
     }
 
     .kv-field-groups {
-        flex: 1 1 auto;
-        overflow: auto;
+        flex: 0 0 auto;
+        overflow: visible;
         padding: 1rem 1.25rem;
     }
 
