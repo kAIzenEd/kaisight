@@ -880,7 +880,7 @@ export class KaisightReportBuilderAction extends Component {
                 }
             }
         }
-        return res;
+        return res.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
     }
 
     get measureableFields() {
@@ -893,7 +893,7 @@ export class KaisightReportBuilderAction extends Component {
                 }
             }
         }
-        return res;
+        return res.sort((a, b) => (a.label || "").localeCompare(b.label || ""));
     }
 
     async setReportType(type) {
